@@ -1,0 +1,30 @@
+# Flutter/Dart
+frontend/.dart_tool/
+frontend/.flutter-plugins
+frontend/.flutter-plugins-dependencies
+frontend/.packages
+frontend/build/
+frontend/.pub-cache/
+frontend/.pub/
+frontend/node_modules/
+
+# Python/Flask
+backend/__pycache__/
+backend/*.pyc
+backend/*.pyo
+backend/*.pyd
+backend/.pytest_cache/
+backend/.venv
+backend/venv/
+backend/env/
+backend/instance/
+backend/.env
+backend/database.db
+backend/vasool_drive.db
+
+# Logs
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
