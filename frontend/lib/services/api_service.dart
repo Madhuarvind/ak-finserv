@@ -158,7 +158,8 @@ class ApiService {
       var response = await http.Response.fromStream(streamedResponse);
       return jsonDecode(response.body);
     } catch (e) {
-      return {'msg': 'connection_failed'};
+      debugPrint("API_DEBUG: registerFace connection error: $e");
+      return {'msg': 'connection_failed', 'error': e.toString()};
     }
   }
 
@@ -574,24 +575,6 @@ class ApiService {
     }
   }
 
-  Future<List<dynamic>> getPendingCollections(String token) async {
-    try {
-      final response = await http.get(
-        Uri.parse('$_apiBase/collection/pending'),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $token'
-        },
-      ).timeout(const Duration(seconds: 10));
-      if (response.statusCode == 200) {
-        return jsonDecode(response.body);
-      }
-      return [];
-    } catch (e) {
-      return [];
-    }
-  }
-
   Future<Map<String, dynamic>> updateCollectionStatus(int collectionId, String status, String token) async {
     try {
       final response = await http.patch(
@@ -625,6 +608,26 @@ class ApiService {
     } catch (e) {
       debugPrint('getAgentStats Error: $e');
       return {'msg': 'connection_failed'};
+    }
+  }
+
+  Future<List<dynamic>> getPendingCollections(String token) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$_apiBase/collection/pending-collections'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      ).timeout(const Duration(seconds: 10));
+      
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body) ?? [];
+      }
+      return [];
+    } catch (e) {
+      debugPrint('getPendingCollections Error: $e');
+      return [];
     }
   }
 

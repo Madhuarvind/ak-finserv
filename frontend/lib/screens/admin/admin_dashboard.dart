@@ -7,7 +7,7 @@ import '../../services/language_service.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../widgets/app_drawer.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import '../customer/customer_list_screen.dart'; // Import for search navigation
+import 'admin_customer_list_screen.dart'; // Import for search navigation
 import 'package:intl/intl.dart';
 
 class AdminDashboard extends StatefulWidget {
@@ -84,7 +84,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
   void _openSearch() {
     Navigator.push(
       context,
-      MaterialPageRoute(builder: (_) => const CustomerListScreen()),
+      MaterialPageRoute(builder: (_) => const AdminCustomerListScreen()),
     );
   }
 
@@ -269,7 +269,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
                             const SizedBox(width: 16),
                              _buildModernActionTile(context, "AI Risk", Icons.psychology_outlined, '/admin/risk_prediction'),
                              const SizedBox(width: 16),
-                             _buildModernActionTile(context, "Worker AI", Icons.analytics_outlined, '/admin/worker_performance'),
+                             _buildModernActionTile(context, "Worker AI", Icons.analytics_outlined, '/admin/analytics'),
                              const SizedBox(width: 16),
                              _buildModernActionTile(context, context.translate('manage_customers'), Icons.people_outline, '/admin/customers'),
                             const SizedBox(width: 16),
@@ -278,6 +278,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
                              _buildModernActionTile(context, "Security", Icons.gpp_good_outlined, '/admin/security'),
                              const SizedBox(width: 16),
                              _buildModernActionTile(context, "Loan Approvals", Icons.fact_check_outlined, '/admin/loan_approvals'),
+                            const SizedBox(width: 16),
+                            _buildModernActionTile(context, "Review Collections", Icons.fact_check_rounded, '/admin/review'),
                             const SizedBox(width: 16),
                             _buildModernActionTile(context, context.translate('settings'), Icons.settings_outlined, '/settings'),
                           ],

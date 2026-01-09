@@ -4,9 +4,8 @@ import '../../utils/theme.dart';
 import 'services/language_service.dart';
 import 'screens/auth/worker_login_screen.dart';
 import 'screens/admin/admin_dashboard.dart';
-import 'screens/admin/add_agent_screen.dart';
+import 'screens/admin/admin_dashboard.dart';
 import 'screens/admin/admin_login_screen.dart';
-import 'screens/admin/face_registration_screen.dart';
 import 'screens/admin/worker_qr_screen.dart';
 import 'screens/admin/audit_logs_screen.dart';
 import 'screens/admin/user_management_screen.dart';
@@ -15,7 +14,7 @@ import 'screens/auth/face_verification_screen.dart';
 import 'screens/settings_screen.dart';
 import 'screens/admin/master_settings_screen.dart';
 import 'screens/admin/risk_prediction_screen.dart';
-import 'screens/admin/worker_performance_screen.dart';
+import 'screens/admin/risk_prediction_screen.dart';
 import 'screens/admin/security_compliance_screen.dart';
 import 'screens/worker_dashboard.dart';
 import 'screens/profile_screen.dart';
@@ -29,11 +28,12 @@ import 'package:camera/camera.dart';
 import 'screens/admin/manage_lines_screen.dart';
 import 'screens/admin/line_customers_screen.dart';
 import 'screens/agent_lines_screen.dart';
-import 'screens/admin/admin_customer_list_screen.dart';
 import 'screens/admin/loan_approval_screen.dart';
 import 'screens/admin/customer_detail_screen.dart';
 import 'screens/admin/reports_screen.dart';
 import 'screens/admin/collection_ledger_screen.dart';
+import 'screens/agent/agent_performance_screen.dart';
+import 'screens/agent/agent_collection_history_screen.dart';
 
 late List<CameraDescription> cameras;
 
@@ -96,7 +96,6 @@ class VasoolDriveApp extends StatelessWidget {
            }
            return const Scaffold(body: Center(child: Text('Error: Missing worker details')));
         },
-        '/admin/add_agent': (context) => const AddAgentScreen(),
         '/admin/audit_logs': (context) => const AuditLogsScreen(),
         '/admin/user_management': (context) => const UserManagementScreen(),
         '/admin/user_detail': (context) {
@@ -126,12 +125,14 @@ class VasoolDriveApp extends StatelessWidget {
         '/agent/lines': (context) => const AgentLinesScreen(),
         '/admin/customers': (context) => const AdminCustomerListScreen(),
         '/admin/loan_approvals': (context) => const LoanApprovalScreen(),
+        '/admin/pending_collections': (context) => const ManagerReviewScreen(),
         '/admin/reports': (context) => ReportsScreen(), 
         '/admin/collection_ledger': (context) => const CollectionLedgerScreen(),
         '/admin/master_settings': (context) => const MasterSettingsScreen(),
         '/admin/risk_prediction': (context) => const RiskPredictionScreen(),
-        '/admin/worker_performance': (context) => const WorkerPerformanceScreen(),
         '/admin/security': (context) => const SecurityComplianceScreen(),
+        '/worker/performance': (context) => const AgentPerformanceScreen(),
+        '/agent/collections': (context) => const AgentCollectionHistoryScreen(),
       },
       onGenerateRoute: (settings) {
         if (settings.name == '/admin/customer_detail') {

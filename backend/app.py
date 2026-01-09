@@ -29,7 +29,6 @@ def create_app():
     from routes.document import document_bp
     from routes.analytics import analytics_bp
     from routes.security import security_bp
-    from routes.interest import interest_bp
     
     # Pre-load face verification model
     try:
@@ -43,7 +42,6 @@ def create_app():
     app.register_blueprint(collection_bp, url_prefix='/api/collection')
     app.register_blueprint(line_bp, url_prefix='/api/line')
     app.register_blueprint(loan_bp, url_prefix='/api/loan')
-    app.register_blueprint(interest_bp, url_prefix='/api/interest')
     app.register_blueprint(reports_bp, url_prefix='/api/reports')
     app.register_blueprint(settings_bp, url_prefix='/api/settings')
     app.register_blueprint(document_bp, url_prefix='/api/document')

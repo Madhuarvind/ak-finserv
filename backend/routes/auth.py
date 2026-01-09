@@ -439,7 +439,7 @@ def get_audit_logs():
             "id": l.id,
             "user_name": u.name if u else "Unknown",
             "mobile": u.mobile_number if u else "N/A",
-            "time": l.login_time.isoformat(),
+            "time": l.login_time.isoformat() + 'Z',
             "status": l.status,
             "device": l.device_info,
             "ip": l.ip_address
@@ -661,10 +661,17 @@ def get_user_login_stats(user_id):
 @jwt_required()
 def get_my_profile():
     current_user_id = get_jwt_identity()
-    user = User.query.get(current_user_id)
+    # Handle string identity (username/mobile/name) instead of integer ID
+    user = User.query.filter(
+        (User.mobile_number == current_user_id) | 
+        (User.username == current_user_id) | 
+        (User.name.ilike(current_user_id))
+    ).first()
+    
     if not user:
         return jsonify({"msg": "User not found"}), 404
     
+    from models import FaceEmbedding, QRCode
     face = FaceEmbedding.query.filter_by(user_id=user.id).first()
     qr = QRCode.query.filter_by(user_id=user.id).first()
     

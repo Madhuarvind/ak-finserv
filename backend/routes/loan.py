@@ -166,7 +166,7 @@ def get_loan(id):
         "processing_fee": loan.processing_fee,
         "pending_amount": loan.pending_amount,
         "status": loan.status,
-        "start_date": loan.start_date.isoformat() if loan.start_date else None,
+        "start_date": loan.start_date.isoformat() + 'Z' if loan.start_date else None,
         "emi_schedule": schedule
     }), 200
 
@@ -266,5 +266,5 @@ def get_all_loans():
         "tenure": l.tenure,
         "tenure_unit": l.tenure_unit,
         "status": l.status,
-        "created_at": l.created_at.isoformat()
+        "created_at": l.created_at.isoformat() + 'Z'
     } for l in loans])

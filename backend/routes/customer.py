@@ -253,7 +253,7 @@ def get_customer_detail(id):
         "longitude": customer.longitude,
         "is_locked": customer.is_locked,
         "version": customer.version,
-        "created_at": customer.created_at.isoformat(),
+        "created_at": customer.created_at.isoformat() + 'Z',
         "loans": loans,
         "active_loan": active_loan
     }), 200
@@ -423,7 +423,7 @@ def get_customer_notes(id):
             "note_text": n.note_text,
             "worker_id": n.worker_id,
             "worker_name": n.worker.name if n.worker else "Unknown",
-            "created_at": n.created_at.isoformat(),
+            "created_at": n.created_at.isoformat() + 'Z',
             "is_important": n.is_important
         } for n in notes]
     }), 200
@@ -484,7 +484,7 @@ def get_customer_timeline(id):
         timeline.append({
             'type': 'version',
             'action': 'Updated' if v.version_number > 1 else 'Created',
-            'timestamp': v.changed_at.isoformat(),
+            'timestamp': v.changed_at.isoformat() + 'Z',
             'user': v.changer.name if v.changer else 'System',
             'changes': v.changes,
             'reason': v.reason
@@ -494,7 +494,7 @@ def get_customer_timeline(id):
         timeline.append({
             'type': 'note',
             'action': 'Added Note',
-            'timestamp': n.created_at.isoformat(),
+            'timestamp': n.created_at.isoformat() + 'Z',
             'user': n.worker.name if n.worker else 'Unknown',
             'content': n.note_text,
             'is_important': n.is_important

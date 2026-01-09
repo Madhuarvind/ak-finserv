@@ -69,7 +69,7 @@ def submit_collection():
             fraud_flag = True
             fraud_reason.append(f"Velocity Anomaly: System detected rapid-fire collection ({int(time_diff)}s since last entry)")
 
-    collect_status = 'approved'
+    collect_status = 'pending'  # Requires admin approval
     if fraud_flag:
         collect_status = 'flagged' # Admin must review
 
@@ -155,27 +155,6 @@ def submit_collection():
         db.session.rollback()
         return jsonify({"msg": str(e)}), 500
 
-@collection_bp.route('/pending', methods=['GET'])
-@jwt_required()
-def get_pending_collections():
-    identity = get_jwt_identity()
-    user = User.query.filter((User.mobile_number == identity) | (User.username == identity) | (User.id == identity)).first()
-    
-    if not user or user.role == UserRole.FIELD_AGENT:
-        return jsonify({"msg": "Access Denied"}), 403
-        
-    # Admins see all pending collections
-    pending = Collection.query.filter_by(status='pending').all()
-        
-    return jsonify([{
-        "id": c.id,
-        "loan_id": c.loan_id,
-        "agent": c.agent_id,
-        "amount": c.amount,
-        "mode": c.payment_mode,
-        "time": c.created_at.isoformat()
-    } for c in pending]), 200
-
 @collection_bp.route('/customers', methods=['GET'])
 @jwt_required()
 def get_customers():
@@ -234,6 +213,42 @@ def get_customer_loans(customer_id):
         "tenure": l.tenure,
         "tenure_unit": l.tenure_unit
     } for l in loans]), 200
+
+@collection_bp.route('/pending-collections', methods=['GET'])
+@jwt_required()
+def get_pending_collections():
+    identity = get_jwt_identity()
+    user = User.query.filter((User.mobile_number == identity) | (User.username == identity)).first()
+    
+    if not user or user.role != UserRole.ADMIN:
+        return jsonify({"msg": "Admin Access Required"}), 403
+    
+    # Get all pending and flagged collections with joins
+    collections = Collection.query.filter(
+        Collection.status.in_(['pending', 'flagged'])
+    ).order_by(Collection.created_at.desc()).all()
+    
+    result = []
+    for c in collections:
+        loan = Loan.query.get(c.loan_id)
+        customer = Customer.query.get(loan.customer_id) if loan else None
+        agent = User.query.get(c.agent_id)
+        
+        result.append({
+            "id": c.id,
+            "amount": c.amount,
+            "payment_mode": c.payment_mode,
+            "status": c.status,
+            "created_at": c.created_at.isoformat() + 'Z',
+            "customer_name": customer.name if customer else "Unknown",
+            "customer_area": customer.area if customer else "",
+            "loan_id": loan.loan_id if loan else "",
+            "agent_name": agent.name if agent else "Unknown",
+            "latitude": c.latitude,
+            "longitude": c.longitude
+        })
+    
+    return jsonify(result), 200
 
 @collection_bp.route('/<int:collection_id>/status', methods=['PATCH'])
 @jwt_required()

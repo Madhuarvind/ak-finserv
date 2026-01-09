@@ -31,19 +31,30 @@ def generate_face_embedding(image_bytes):
     2. Crop and preprocess face.
     3. Generate 1280-d embedding using MobileNetV2.
     """
+    import time
+    start_time = time.time()
     try:
         # Load image
-        print("DEBUG: Face Utils - Starting face detection...")
+        print(f"DEBUG: Face Utils - START [0.00s]")
         img_array = np.frombuffer(image_bytes, np.uint8)
         img = cv2.imdecode(img_array, cv2.IMREAD_COLOR)
         if img is None:
             print("DEBUG: Face Utils - Invalid image data")
             return None, "Invalid image data"
             
-        print(f"DEBUG: Face Utils - Image decoded. Size: {img.shape}")
+        print(f"DEBUG: Face Utils - Decoded size {img.shape} [{time.time() - start_time:.2f}s]")
+        
+        # Performance: Resize large images before face detection
+        height, width = img.shape[:2]
+        if width > 600:
+            scale = 600 / width
+            img = cv2.resize(img, (int(width * scale), int(height * scale)))
+            print(f"DEBUG: Face Utils - Resized to {img.shape} for detection [{time.time() - start_time:.2f}s]")
+
         gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-        faces = face_cascade.detectMultiScale(gray, 1.1, 4)
-        print(f"DEBUG: Face Utils - Faces found: {len(faces)}")
+        print(f"DEBUG: Face Utils - Searching for face...")
+        faces = face_cascade.detectMultiScale(gray, 1.1, 5, minSize=(50, 50))
+        print(f"DEBUG: Face Utils - Faces found: {len(faces)} [{time.time() - start_time:.2f}s]")
         
         if len(faces) == 0:
             return None, "No face detected"
@@ -57,7 +68,7 @@ def generate_face_embedding(image_bytes):
         pil_img = Image.fromarray(face_rgb)
         
         # Preprocess and generate embedding
-        print("DEBUG: Face Utils - Generating embedding with MobileNet...")
+        print(f"DEBUG: Face Utils - Running MobileNet ...")
         input_tensor = transform(pil_img).unsqueeze(0).to(device)
         
         with torch.no_grad():
@@ -65,11 +76,12 @@ def generate_face_embedding(image_bytes):
             
         # Convert to list for JSON storage
         embedding_list = embedding.cpu().numpy().flatten().tolist()
-        print(f"DEBUG: Face Utils - Embedding generated! Len: {len(embedding_list)}")
+        total_time = time.time() - start_time
+        print(f"DEBUG: Face Utils - SUCCESS - Embedding Len: {len(embedding_list)} [{total_time:.2f}s]")
         return embedding_list, None
         
     except Exception as e:
-        print(f"DEBUG: Face Utils - ERROR: {str(e)}")
+        print(f"DEBUG: Face Utils - FATAL ERROR: {str(e)} [{time.time() - start_time:.2f}s]")
         return None, str(e)
 
 def compare_embeddings(emb1, emb2):

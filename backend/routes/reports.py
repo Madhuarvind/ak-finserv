@@ -80,7 +80,7 @@ def get_daily_report():
                 "amount": c.amount,
                 "mode": c.payment_mode,
                 "status": c.status,
-                "time": c.created_at.isoformat(),
+                "time": c.created_at.isoformat() + 'Z',
                 "agent_name": c.agent.name if c.agent else "Unknown",
                 "customer_name": c.loan.customer.name if c.loan and c.loan.customer else "Unknown",
                 "loan_id": c.loan.loan_id if c.loan else "N/A"
@@ -184,13 +184,13 @@ def get_overdue_report():
                     "area": cust.area,
                     "total_overdue": 0,
                     "missed_emis": 0,
-                    "oldest_due_date": emi.due_date.isoformat()
+                    "oldest_due_date": emi.due_date.isoformat() + 'Z'
                 }
             
             report_map[cust.id]['total_overdue'] += emi.balance
             report_map[cust.id]['missed_emis'] += 1
-            if emi.due_date.isoformat() < report_map[cust.id]['oldest_due_date']:
-               report_map[cust.id]['oldest_due_date'] = emi.due_date.isoformat()
+            if emi.due_date.isoformat() + 'Z' < report_map[cust.id]['oldest_due_date']:
+               report_map[cust.id]['oldest_due_date'] = emi.due_date.isoformat() + 'Z'
 
         return jsonify(list(report_map.values())), 200
         
@@ -221,7 +221,7 @@ def get_work_targets():
             report.append({
                 "customer_name": cust.name,
                 "amount_due": emi.amount,
-                "due_date": emi.due_date.isoformat(),
+                "due_date": emi.due_date.isoformat() + 'Z',
                 "loan_id": loan.loan_id,
                 "area": cust.area,
                 "agent_name": agent.name if agent else "Unassigned",

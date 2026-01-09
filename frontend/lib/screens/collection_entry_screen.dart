@@ -141,7 +141,7 @@ class _CollectionEntryScreenState extends State<CollectionEntryScreen> {
           _showFraudWarningDialog(result['fraud_warning'] ?? ["Unknown anomaly detected"]);
         } else if (result['msg']?.contains('success') ?? false) {
            ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Collection approved successfully!'), backgroundColor: Colors.green),
+            const SnackBar(content: Text('Collection submitted successfully! Awaiting admin approval.'), backgroundColor: Colors.green),
           );
           Navigator.pop(context, true);
         } else {

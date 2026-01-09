@@ -235,9 +235,13 @@ class _WorkerDashboardState extends State<WorkerDashboard> {
                           children: [
                             _buildModernActionTile(context, context.translate('collection'), Icons.add_circle_outline_rounded, '/collection_entry', Colors.green),
                             const SizedBox(width: 16),
+                            _buildModernActionTile(context, "My Stats", Icons.assessment_outlined, '/worker/performance', Colors.cyan),
+                            const SizedBox(width: 16),
                             _buildModernActionTile(context, 'Customers', Icons.people_outline_rounded, '', Colors.teal, isCustom: true, onTap: () {
                                Navigator.push(context, MaterialPageRoute(builder: (_) => const CustomerListScreen()));
                             }),
+                            const SizedBox(width: 16),
+                            _buildModernActionTile(context, "History", Icons.history_rounded, '/agent/collections', Colors.blueGrey),
                             const SizedBox(width: 16),
                             _buildModernActionTile(context, context.translate('daily_route'), Icons.map_outlined, '/agent/lines', Colors.purple),
                             const SizedBox(width: 16),

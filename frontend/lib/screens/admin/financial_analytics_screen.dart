@@ -75,9 +75,9 @@ class _FinancialAnalyticsScreenState extends State<FinancialAnalyticsScreen> {
   Widget _buildSummaryCards() {
     return Row(
       children: [
-        Expanded(child: _buildStatCard('Total Approved', '₹ ${_stats!['total_approved']}', Icons.account_balance_wallet_rounded, Colors.blue)),
+        Expanded(child: _buildStatCard('Total Approved', '₹ ${_stats?['total_approved'] ?? 0}', Icons.account_balance_wallet_rounded, Colors.blue)),
         const SizedBox(width: 16),
-        Expanded(child: _buildStatCard('Today\'s Total', '₹ ${_stats!['today_total']}', Icons.today_rounded, Colors.green)),
+        Expanded(child: _buildStatCard('Today\'s Total', '₹ ${_stats?['today_total'] ?? 0}', Icons.today_rounded, Colors.green)),
       ],
     );
   }
@@ -111,7 +111,7 @@ class _FinancialAnalyticsScreenState extends State<FinancialAnalyticsScreen> {
   }
 
   Widget _buildModeDistributionChart() {
-    final modeData = _stats!['mode_distribution'] as Map<String, dynamic>;
+    final modeData = _stats?['mode_distribution'] as Map<String, dynamic>? ?? {};
     if (modeData.isEmpty) {
 
       return const Center(child: Text('No data distribution available'));
@@ -141,7 +141,7 @@ class _FinancialAnalyticsScreenState extends State<FinancialAnalyticsScreen> {
   }
 
   Widget _buildAgentPerformanceList() {
-    final agents = _stats!['agent_performance'] as List<dynamic>;
+    final agents = List<dynamic>.from(_stats?['agent_performance'] ?? []);
     if (agents.isEmpty) {
       return Container(
         padding: const EdgeInsets.all(24),

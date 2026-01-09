@@ -1,16 +1,46 @@
-# vasool_drive
+# Vasool Drive - Frontend
 
-A new Flutter project.
+The mobile application interface for the Vasool Drive Daily Finance Collection System, built with **Flutter**.
 
-## Getting Started
+## 📱 Overview
+This application serves two primary user roles:
+1. **Field Agents**: Collecting payments, managing daily routes, and viewing performance stats.
+2. **Admins**: Monitoring operations, approving collections, and managing the entire system.
 
-This project is a starting point for a Flutter application.
+## 🔑 Key Modules
 
-A few resources to get you started if this is your first Flutter project:
+### Authentication
+- **Login**: Secure PIN + Face Verification flow.
+- **Biometric Enrollment**: Integrated camera module for capturing and verifying agent faces.
 
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
+### Agent Features
+- **My Lines**: Tabbed view of daily customers (Pending/Collected).
+- **Collection Entry**: Fast, secure payment recording with GPS tagging.
+- **My Stats**: Personal performance dashboard with AI insights.
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+### Admin Features
+- **Dashboard**: High-level financial overview and quick actions.
+- **Collection Review**: Unified interface to approve/reject agent collections.
+- **User Management**: Create and manage staff accounts.
+- **Analytics**: Deep dives into risk and worker performance.
+- **Master Settings**: Configure interest rates, grace periods, and system rules.
+
+## 🚀 Setup & Run
+
+1. **Install Flutter**: Ensure the Flutter SDK is installed and added to your PATH.
+2. **Install Dependencies**:
+   ```bash
+   flutter pub get
+   ```
+3. **Run the App**:
+   ```bash
+   flutter run
+   ```
+
+## 📦 Key Dependencies
+- `provider`: State management.
+- `http`: API communication.
+- `flutter_secure_storage`: Secure token storage.
+- `intl`: Date and currency formatting.
+- `camera`: Biometric features.
+- `fl_chart`: Analytics visualization.

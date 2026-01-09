@@ -23,12 +23,19 @@ class _FaceEnrollmentScreenState extends State<FaceEnrollmentScreen> {
   final ApiService _apiService = ApiService();
   final _storage = const FlutterSecureStorage();
   Future<void>? _initializeControllerFuture;
+  bool _cameraInitialized = false;
   String? _statusMessage;
+
+  @override
+  void dispose() {
+    _controller?.dispose();
+    super.dispose();
+  }
 
   @override
   void initState() {
     super.initState();
-    _initializeControllerFuture = _initializeCamera();
+    // Camera will be initialized on demand
   }
 
   Future<void> _initializeCamera() async {
@@ -53,15 +60,20 @@ class _FaceEnrollmentScreenState extends State<FaceEnrollmentScreen> {
 
     try {
       await _controller!.initialize();
+      if (mounted) {
+        setState(() {
+          _cameraInitialized = true;
+        });
+      }
     } catch (e) {
       debugPrint("Camera Error: $e");
     }
   }
 
-  @override
-  void dispose() {
-    _controller?.dispose();
-    super.dispose();
+  void _startCamera() {
+    setState(() {
+      _initializeControllerFuture = _initializeCamera();
+    });
   }
 
   Future<void> _takePicture() async {
@@ -73,7 +85,10 @@ class _FaceEnrollmentScreenState extends State<FaceEnrollmentScreen> {
     
     try {
       final image = await _controller!.takePicture();
-      setState(() => _imageFile = image);
+      setState(() {
+        _imageFile = image;
+        _isProcessing = false;
+      });
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Capture Error: $e")));
@@ -103,8 +118,11 @@ class _FaceEnrollmentScreenState extends State<FaceEnrollmentScreen> {
       
       setState(() => _statusMessage = "Processing image...");
       final imageBytes = await _imageFile!.readAsBytes();
+      final kb = (imageBytes.lengthInBytes / 1024).toStringAsFixed(1);
       
-      setState(() => _statusMessage = "Sending to AI server...");
+      setState(() => _statusMessage = "Sending to AI ($kb KB)...");
+      debugPrint("FACE_DEBUG: Sending $kb KB to registerFace");
+      
       final result = await _apiService.registerFace(
         profile['id'],
         imageBytes,
@@ -115,12 +133,15 @@ class _FaceEnrollmentScreenState extends State<FaceEnrollmentScreen> {
       if (mounted) {
         if (result.containsKey('msg') && result['msg'] == 'face_registered_successfully') {
           setState(() => _statusMessage = "Success!");
+          if (!mounted) return;
           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Face registered successfully!")));
           await Future.delayed(const Duration(seconds: 1));
+          if (!mounted) return;
           Navigator.pop(context, true);
         } else {
           final err = result['msg'] ?? result['error'] ?? "Error registering face";
           setState(() => _statusMessage = "Failed: $err");
+          if (!mounted) return;
           ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(err)));
         }
       }
@@ -152,21 +173,43 @@ class _FaceEnrollmentScreenState extends State<FaceEnrollmentScreen> {
               child: Stack(
                 alignment: Alignment.center,
                 children: [
-                  _imageFile == null
-                      ? FutureBuilder<void>(
-                          future: _initializeControllerFuture,
-                          builder: (context, snapshot) {
-                            if (snapshot.connectionState == ConnectionState.done && 
-                                _controller != null && _controller!.value.isInitialized) {
-                              return CameraPreview(_controller!);
-                            } else {
-                              return const Center(child: CircularProgressIndicator(color: AppTheme.primaryColor));
-                            }
-                          },
-                        )
-                      : (kIsWeb 
+                  _imageFile != null 
+                      ? (kIsWeb 
                           ? Image.network(_imageFile!.path, fit: BoxFit.cover)
-                          : Image.file(File(_imageFile!.path), fit: BoxFit.cover)),
+                          : Image.file(File(_imageFile!.path), fit: BoxFit.cover))
+                      : !_cameraInitialized
+                          ? Center(
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  const Icon(Icons.camera_alt_outlined, color: Colors.white24, size: 64),
+                                  const SizedBox(height: 16),
+                                  Text("Camera access required", style: GoogleFonts.outfit(color: Colors.white54, fontSize: 16)),
+                                  const SizedBox(height: 16),
+                                  ElevatedButton(
+                                    onPressed: _startCamera,
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: AppTheme.primaryColor,
+                                      foregroundColor: Colors.black,
+                                      padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                                    ),
+                                    child: const Text("Start Camera"),
+                                  ),
+                                ],
+                              ),
+                            )
+                          : FutureBuilder<void>(
+                              future: _initializeControllerFuture,
+                              builder: (context, snapshot) {
+                                if (snapshot.connectionState == ConnectionState.done && 
+                                    _controller != null && _controller!.value.isInitialized) {
+                                  return CameraPreview(_controller!);
+                                } else {
+                                  return const Center(child: CircularProgressIndicator(color: AppTheme.primaryColor));
+                                }
+                              },
+                            ),
                   // Oval Guide
                   Container(
                     width: 250,
@@ -211,7 +254,15 @@ class _FaceEnrollmentScreenState extends State<FaceEnrollmentScreen> {
                     children: [
                       Expanded(
                           child: OutlinedButton(
-                            onPressed: () => setState(() { _imageFile = null; _isProcessing = false; }),
+                            onPressed: () {
+                              setState(() {
+                                _imageFile = null;
+                                _isProcessing = false;
+                                _statusMessage = null;
+                                // Reinitialize camera for retake
+                                _initializeControllerFuture = _initializeCamera();
+                              });
+                            },
                             style: OutlinedButton.styleFrom(
                               minimumSize: const Size(0, 56),
                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),

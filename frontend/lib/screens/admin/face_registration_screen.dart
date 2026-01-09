@@ -33,10 +33,15 @@ class _FaceRegistrationScreenState extends State<FaceRegistrationScreen> {
   final ApiService _apiService = ApiService();
   bool _isLoading = false;
   String? _statusMessage;
+  bool _cameraInitialized = false;
 
   @override
   void initState() {
     super.initState();
+    // Camera will be initialized on demand
+  }
+
+  void _startCamera() {
     // Use the front camera if available
     final frontCamera = cameras.firstWhere(
       (camera) => camera.lensDirection == CameraLensDirection.front,
@@ -49,7 +54,13 @@ class _FaceRegistrationScreenState extends State<FaceRegistrationScreen> {
       enableAudio: false,
     );
 
-    _initializeControllerFuture = _controller!.initialize();
+    setState(() {
+      _initializeControllerFuture = _controller!.initialize().then((_) {
+        if (mounted) {
+          setState(() => _cameraInitialized = true);
+        }
+      });
+    });
   }
 
   @override
@@ -86,11 +97,16 @@ class _FaceRegistrationScreenState extends State<FaceRegistrationScreen> {
     });
     
     try {
+      setState(() => _statusMessage = "Processing image...");
       final imageBytes = await _imageFile!.readAsBytes();
+      final kb = (imageBytes.lengthInBytes / 1024).toStringAsFixed(1);
+      
       final token = await _apiService.getToken();
       
       if (token != null) {
-        setState(() => _statusMessage = "Sending to AI server...");
+        setState(() => _statusMessage = "Sending to AI ($kb KB)...");
+        debugPrint("FACE_DEBUG: Sending $kb KB to registerFace (Admin Screen)");
+        
         final result = await _apiService.registerFace(
           widget.userId, 
           imageBytes, 
@@ -108,6 +124,7 @@ class _FaceRegistrationScreenState extends State<FaceRegistrationScreen> {
           
           await Future.delayed(const Duration(seconds: 1));
           
+          if (!mounted) return;
           Navigator.pushReplacementNamed(
             context, 
             '/admin/worker_qr', 
@@ -184,21 +201,40 @@ class _FaceRegistrationScreenState extends State<FaceRegistrationScreen> {
                         ],
                       ),
                       child: ClipOval(
-                        child: _imageFile == null
-                            ? FutureBuilder<void>(
-                                future: _initializeControllerFuture,
-                                builder: (context, snapshot) {
-                                  if (snapshot.connectionState == ConnectionState.done && 
-                                      _controller != null && _controller!.value.isInitialized) {
-                                    return CameraPreview(_controller!);
-                                  } else {
-                                    return const Center(child: CircularProgressIndicator(color: AppTheme.primaryColor));
-                                  }
-                                },
-                              )
-                            : (kIsWeb 
+                        child: _imageFile != null
+                            ? (kIsWeb 
                                 ? Image.network(_imageFile!.path, fit: BoxFit.cover)
-                                : Image.file(File(_imageFile!.path), fit: BoxFit.cover)),
+                                : Image.file(File(_imageFile!.path), fit: BoxFit.cover))
+                            : !_cameraInitialized
+                                ? Center(
+                                    child: Column(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        const Icon(Icons.camera_alt_outlined, color: Colors.white24, size: 48),
+                                        const SizedBox(height: 12),
+                                        ElevatedButton(
+                                          onPressed: _startCamera,
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor: AppTheme.primaryColor,
+                                            foregroundColor: Colors.black,
+                                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                          ),
+                                          child: const Text("Start Camera"),
+                                        ),
+                                      ],
+                                    ),
+                                  )
+                                : FutureBuilder<void>(
+                                    future: _initializeControllerFuture,
+                                    builder: (context, snapshot) {
+                                      if (snapshot.connectionState == ConnectionState.done && 
+                                          _controller != null && _controller!.value.isInitialized) {
+                                        return CameraPreview(_controller!);
+                                      } else {
+                                        return const Center(child: CircularProgressIndicator(color: AppTheme.primaryColor));
+                                      }
+                                    },
+                                  ),
                       ),
                     ),
                   ),

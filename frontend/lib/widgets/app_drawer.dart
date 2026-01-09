@@ -177,15 +177,6 @@ class AppDrawer extends StatelessWidget {
                   ),
                   _buildDrawerItem(
                     context,
-                    icon: Icons.assessment_outlined,
-                    label: context.translate('worker_ai_performance'),
-                    onTap: () {
-                      Navigator.pop(context);
-                      Navigator.pushNamed(context, '/admin/worker_performance');
-                    },
-                  ),
-                  _buildDrawerItem(
-                    context,
                     icon: Icons.analytics_outlined,
                     label: context.translate('performance_analytics'),
                     onTap: () {
@@ -230,7 +221,24 @@ class AppDrawer extends StatelessWidget {
                       },
                     ),
                 ] else ...[
-                  // Worker Specific Items
+                  _buildDrawerItem(
+                    context,
+                    icon: Icons.assessment_outlined,
+                    label: 'My AI Performance',
+                    onTap: () {
+                      Navigator.pop(context);
+                      Navigator.pushNamed(context, '/worker/performance');
+                    },
+                  ),
+                  _buildDrawerItem(
+                    context,
+                    icon: Icons.history_rounded,
+                    label: context.translate('collection_history'),
+                    onTap: () {
+                      Navigator.pop(context);
+                      Navigator.pushNamed(context, '/agent/collections');
+                    },
+                  ),
                   _buildDrawerItem(
                     context,
                     icon: Icons.people_outline_rounded,
