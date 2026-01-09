@@ -12,9 +12,9 @@ def create_app():
     }})
 
     # Configuration - Using MySQL
-    app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://root:MYSQL@localhost:3306/vasool_drive'
+    app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL', 'mysql+pymysql://root:MYSQL@localhost:3306/vasool_drive')
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-    app.config['JWT_SECRET_KEY'] = 'vasool-drive-secret-keys' # Change in production
+    app.config['JWT_SECRET_KEY'] = os.getenv('JWT_SECRET_KEY', 'vasool-drive-secret-keys') # Change in production
 
     db.init_app(app)
     jwt.init_app(app)

@@ -4,7 +4,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../../utils/theme.dart';
 import '../../services/local_db_service.dart';
 import '../../services/api_service.dart';
-import 'add_customer_screen.dart';
+import '../../widgets/add_customer_dialog.dart'; // Fixed relative import
 
 
 class CustomerListScreen extends StatefulWidget {
@@ -236,9 +236,9 @@ class _CustomerListScreenState extends State<CustomerListScreen> {
             ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () async {
-          final result = await Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => const AddCustomerScreen()),
+          final result = await showDialog(
+            context: context,
+            builder: (context) => const AddCustomerDialog(),
           );
           if (result == true) {
             _loadCustomers();

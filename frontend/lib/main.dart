@@ -4,7 +4,6 @@ import '../../utils/theme.dart';
 import 'services/language_service.dart';
 import 'screens/auth/worker_login_screen.dart';
 import 'screens/admin/admin_dashboard.dart';
-import 'screens/admin/admin_dashboard.dart';
 import 'screens/admin/admin_login_screen.dart';
 import 'screens/admin/worker_qr_screen.dart';
 import 'screens/admin/audit_logs_screen.dart';
@@ -14,12 +13,13 @@ import 'screens/auth/face_verification_screen.dart';
 import 'screens/settings_screen.dart';
 import 'screens/admin/master_settings_screen.dart';
 import 'screens/admin/risk_prediction_screen.dart';
-import 'screens/admin/risk_prediction_screen.dart';
 import 'screens/admin/security_compliance_screen.dart';
 import 'screens/worker_dashboard.dart';
 import 'screens/profile_screen.dart';
 import 'screens/security_settings_screen.dart';
-import 'screens/face_enrollment_screen.dart';
+// import 'screens/face_enrollment_screen.dart'; // Removed
+import 'screens/admin/admin_customer_list_screen.dart'; // Added import for AdminCustomerListScreen
+import 'screens/admin/face_registration_screen.dart'; // Added import for FaceRegistrationScreen
 import 'screens/collection_entry_screen.dart';
 import 'screens/admin/manager_review_screen.dart';
 import 'screens/admin/financial_analytics_screen.dart';
@@ -109,7 +109,7 @@ class VasoolDriveApp extends StatelessWidget {
         '/home': (context) => const WorkerDashboard(),
         '/profile': (context) => const ProfileScreen(),
         '/security': (context) => const SecuritySettingsScreen(),
-        '/enroll_face': (context) => const FaceEnrollmentScreen(),
+        // '/enroll_face': (context) => const FaceEnrollmentScreen(), // Removed invalid route
         '/collection_entry': (context) => const CollectionEntryScreen(),
         '/admin/review': (context) => const ManagerReviewScreen(),
         '/admin/financial_stats': (context) => const FinancialAnalyticsScreen(),
