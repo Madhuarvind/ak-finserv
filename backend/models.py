@@ -222,6 +222,27 @@ class LineCustomer(db.Model):
     # Relationship to get customer info directly    
     customer = db.relationship('Customer', backref='line_assignments')
 
+class DailySettlement(db.Model):
+    __tablename__ = 'daily_settlements'
+    id = db.Column(db.Integer, primary_key=True)
+    agent_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    date = db.Column(db.Date, nullable=False) # The date of collection
+    
+    system_cash = db.Column(db.Float, default=0.0) # What the system says they collected in CASH
+    physical_cash = db.Column(db.Float, default=0.0) # What they actually handed over
+    expenses = db.Column(db.Float, default=0.0) # Total expenses claim
+    
+    difference = db.Column(db.Float, default=0.0) # physical + expenses - system (Should be 0)
+    
+    notes = db.Column(db.Text, nullable=True) # Description of expenses or reasons for shortage
+    status = db.Column(db.String(20), default='pending') # pending, verified
+    
+    verified_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
+    verified_at = db.Column(db.DateTime, nullable=True)
+    
+    agent = db.relationship('User', foreign_keys=[agent_id], backref='settlements')
+    verifier = db.relationship('User', foreign_keys=[verified_by])
+
 # Phase 3A: Production-Grade Customer Management Models
 
 class CustomerVersion(db.Model):

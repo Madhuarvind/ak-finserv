@@ -157,6 +157,41 @@ def create_customer_online():
         return jsonify({"msg": str(e)}), 500
 
 
+@customer_bp.route('/qr/<string:qr_code>', methods=['GET'])
+@jwt_required()
+def get_customer_by_qr(qr_code):
+    """
+    Get customer by scanning QR code.
+    Interprets QR code as:
+    1. customer_id (Exact match)
+    2. mobile_number (Exact match)
+    """
+    print(f"=== QR SCAN REQUEST: {qr_code} ===")
+    
+    # 1. Try Customer ID
+    customer = Customer.query.filter_by(customer_id=qr_code).first()
+    
+    # 2. Try Mobile Number
+    if not customer:
+        customer = Customer.query.filter_by(mobile_number=qr_code).first()
+        
+    if not customer:
+        return jsonify({"msg": "Customer not found"}), 404
+        
+    # Check if customer has active loan for quick collection
+    active_loan = Loan.query.filter_by(customer_id=customer.id, status='active').first()
+    
+    return jsonify({
+        "id": customer.id,
+        "customer_id": customer.customer_id,
+        "name": customer.name,
+        "mobile": customer.mobile_number,
+        "area": customer.area,
+        "profile_image": customer.profile_image,
+        "active_loan_id": active_loan.id if active_loan else None,
+        "collection_route": '/collection_entry' # Hint to frontend where to go
+    }), 200
+
 @customer_bp.route('/list', methods=['GET'])
 @jwt_required()
 def list_customers():

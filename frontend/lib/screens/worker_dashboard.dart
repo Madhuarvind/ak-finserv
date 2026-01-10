@@ -8,6 +8,7 @@ import '../widgets/app_drawer.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../services/api_service.dart';
 import 'customer/customer_list_screen.dart';
+import 'common/qr_scan_screen.dart';
 
 class WorkerDashboard extends StatefulWidget {
   const WorkerDashboard({super.key});
@@ -19,6 +20,7 @@ class WorkerDashboard extends StatefulWidget {
 class _WorkerDashboardState extends State<WorkerDashboard> {
   final ApiService _apiService = ApiService();
   final _storage = const FlutterSecureStorage();
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   String? _userName;
   String? _role;
   Map<String, dynamic> _stats = {"collected": 0.0, "goal": 50000.0};
@@ -68,43 +70,38 @@ class _WorkerDashboardState extends State<WorkerDashboard> {
     return Consumer<LanguageProvider>(
       builder: (context, languageProvider, child) {
         return Scaffold(
+          key: _scaffoldKey,
           drawer: AppDrawer(
             userName: _userName ?? 'User',
             role: _role ?? 'field_agent',
           ),
           appBar: AppBar(
             automaticallyImplyLeading: false,
-            title: Row(
-              children: [
-                Builder(
-                  builder: (context) => IconButton(
-                    icon: const Icon(Icons.menu_rounded),
-                    onPressed: () => Scaffold.of(context).openDrawer(),
-                  ),
+            leading: IconButton(
+              icon: const Icon(Icons.menu_rounded),
+              onPressed: () => _scaffoldKey.currentState?.openDrawer(),
+            ),
+            title: InkWell(
+              onTap: () {}, // TODO: Open search
+              child: Container(
+                height: 40,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.black.withValues(alpha: 0.05)),
                 ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Container(
-                    height: 45,
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.black.withValues(alpha: 0.05)),
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Row(
+                  children: [
+                    Icon(Icons.search_rounded, color: AppTheme.secondaryTextColor.withValues(alpha: 0.5), size: 18),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Search collections...',
+                      style: TextStyle(color: AppTheme.secondaryTextColor.withValues(alpha: 0.5), fontSize: 13),
                     ),
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    child: Row(
-                      children: [
-                        Icon(Icons.search_rounded, color: AppTheme.secondaryTextColor.withValues(alpha: 0.5), size: 20),
-                        const SizedBox(width: 12),
-                        Text(
-                          'Search collections...',
-                          style: TextStyle(color: AppTheme.secondaryTextColor.withValues(alpha: 0.5), fontSize: 14),
-                        ),
-                      ],
-                    ),
-                  ),
+                  ],
                 ),
-              ],
+              ),
             ),
             actions: [
               IconButton(
@@ -245,8 +242,38 @@ class _WorkerDashboardState extends State<WorkerDashboard> {
                             const SizedBox(width: 16),
                             _buildModernActionTile(context, context.translate('daily_route'), Icons.map_outlined, '/agent/lines', Colors.purple),
                             const SizedBox(width: 16),
-                            _buildModernActionTile(context, context.translate('qr_scan'), Icons.qr_code_scanner_rounded, '', Colors.orange, isCustom: true, onTap: () {
-                               ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("QR Scanner starting...")));
+                            _buildModernActionTile(context, context.translate('qr_scan'), Icons.qr_code_scanner_rounded, '', Colors.orange, isCustom: true, onTap: () async {
+                               final result = await Navigator.push(
+                                 context,
+                                 MaterialPageRoute(builder: (context) => const QRScanScreen()),
+                               );
+                               if (result != null) {
+                                  if (!context.mounted) return;
+                                  
+                                  // Show processing
+                                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Processing QR...")));
+                                  
+                                  final customerData = await _apiService.getCustomerByQr(result.toString());
+                                  
+                                  if (!context.mounted) return;
+                                  
+                                  if (customerData['msg'] == 'not_found') {
+                                     ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Customer not found!"), backgroundColor: Colors.red));
+                                  } else if (customerData['id'] != null) {
+                                     // Navigate to Collection Entry for this customer
+                                     Navigator.pushNamed(
+                                       context, 
+                                       '/collection_entry',
+                                       arguments: {
+                                         'customer_id': customerData['id'],
+                                         'customer_name': customerData['name'],
+                                         'customer_uid': customerData['customer_id']
+                                       }
+                                     );
+                                  } else {
+                                     ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Error reading QR"), backgroundColor: Colors.red));
+                                  }
+                               }
                             }),
                             const SizedBox(width: 16),
                             _buildModernActionTile(context, context.translate('security_hub'), Icons.security_outlined, '/security', Colors.indigo),

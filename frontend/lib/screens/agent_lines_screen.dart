@@ -143,6 +143,33 @@ class _LineCustomersSheetState extends State<_LineCustomersSheet> {
     }
   }
 
+  Future<void> _optimizeRoute() async {
+    setState(() => _isLoading = true);
+    // 1. Get current location (Heuristic coordinates for demo)
+    double lat = 12.9716; 
+    double lng = 77.5946;
+    
+    final token = await widget.storage.read(key: 'jwt_token');
+    if (token != null) {
+      final optimized = await widget.apiService.optimizeRoute(widget.line['id'], lat, lng, token);
+      if (mounted) {
+        setState(() {
+          // Re-map pending customers based on AI priority
+          final collectedIds = _collectedCustomers.map((c) => c['id']).toSet();
+          _pendingCustomers = optimized.where((c) => !collectedIds.contains(c['id'])).toList();
+          _isLoading = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('AI: Route prioritized by proximity & risk factor'),
+            backgroundColor: Colors.indigo,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -160,18 +187,27 @@ class _LineCustomersSheetState extends State<_LineCustomersSheet> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(widget.line['name'], style: GoogleFonts.outfit(fontSize: 22, fontWeight: FontWeight.bold)),
-                    _isLoading 
-                      ? const Text("Loading...", style: TextStyle(fontSize: 12, color: Colors.grey))
-                      : Text(
-                          "${_collectedCustomers.length} / ${_pendingCustomers.length + _collectedCustomers.length} Collected Today",
-                          style: const TextStyle(fontSize: 12, color: AppTheme.primaryColor, fontWeight: FontWeight.bold),
-                        ),
-                  ],
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(widget.line['name'], style: GoogleFonts.outfit(fontSize: 22, fontWeight: FontWeight.bold)),
+                      _isLoading 
+                        ? const Text("Loading...", style: TextStyle(fontSize: 12, color: Colors.grey))
+                        : Text(
+                            "${_collectedCustomers.length} / ${_pendingCustomers.length + _collectedCustomers.length} Collected Today",
+                            style: const TextStyle(fontSize: 12, color: AppTheme.primaryColor, fontWeight: FontWeight.bold),
+                          ),
+                    ],
+                  ),
                 ),
+                TextButton.icon(
+                  onPressed: _optimizeRoute, 
+                  icon: const Icon(Icons.auto_awesome, size: 18, color: Colors.indigo),
+                  label: Text("AI Optimize", style: GoogleFonts.outfit(color: Colors.indigo, fontWeight: FontWeight.bold, fontSize: 12)),
+                  style: TextButton.styleFrom(backgroundColor: Colors.indigo.withValues(alpha: 0.1), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+                ),
+                const SizedBox(width: 8),
                 Container(
                   decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.05), shape: BoxShape.circle),
                   child: IconButton(onPressed: () => Navigator.pop(context), icon: const Icon(Icons.close, size: 20)),

@@ -34,6 +34,7 @@ import 'screens/admin/reports_screen.dart';
 import 'screens/admin/collection_ledger_screen.dart';
 import 'screens/agent/agent_performance_screen.dart';
 import 'screens/agent/agent_collection_history_screen.dart';
+import 'screens/admin/database_viewer_screen.dart';
 
 late List<CameraDescription> cameras;
 
@@ -131,6 +132,7 @@ class VasoolDriveApp extends StatelessWidget {
         '/admin/master_settings': (context) => const MasterSettingsScreen(),
         '/admin/risk_prediction': (context) => const RiskPredictionScreen(),
         '/admin/security': (context) => const SecurityComplianceScreen(),
+        '/admin/db_viewer': (context) => const DatabaseViewerScreen(),
         '/worker/performance': (context) => const AgentPerformanceScreen(),
         '/agent/collections': (context) => const AgentCollectionHistoryScreen(),
       },

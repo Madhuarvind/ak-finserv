@@ -3,7 +3,8 @@ import '../../services/api_service.dart';
 import '../../utils/localizations.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:google_fonts/google_fonts.dart';
-import '../../widgets/add_customer_dialog.dart';
+import 'package:vasool_drive/widgets/add_customer_dialog.dart';
+import 'customer_detail_screen.dart';
 
 class LineCustomersScreen extends StatefulWidget {
   final Map<String, dynamic> line;
@@ -229,17 +230,36 @@ class _LineCustomersScreenState extends State<LineCustomersScreen> {
                     _updateOrder();
                   },
                   children: _lineCustomers.map((cust) {
-                    return Card(
+                    return Container(
                       key: ValueKey(cust['id']),
-                      elevation: 1,
-                      margin: const EdgeInsets.only(bottom: 8),
+                      margin: const EdgeInsets.only(bottom: 12),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(32),
+                        border: Border.all(color: Colors.black.withValues(alpha: 0.04)),
+                      ),
                       child: ListTile(
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                         leading: CircleAvatar(
-                          child: Text((_lineCustomers.indexOf(cust) + 1).toString()),
+                          backgroundColor: const Color(0xFFAEEA44), // Lime Green
+                          foregroundColor: Colors.black,
+                          radius: 20,
+                          child: Text(
+                            (_lineCustomers.indexOf(cust) + 1).toString(),
+                            style: const TextStyle(fontWeight: FontWeight.bold),
+                          ),
                         ),
-                        title: Text(cust['name']),
-                        subtitle: Text('${cust['mobile']} • ${cust['area']}'),
-                        trailing: const Icon(Icons.drag_handle),
+                        title: Text(cust['name'], style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 16)),
+                        subtitle: Text('${cust['mobile']} • ${cust['area']}', style: GoogleFonts.outfit(color: Colors.black54)),
+                        trailing: const Icon(Icons.drag_handle, color: Colors.black54), // Keeping drag_handle as it IS the two lines icon usually
+                        onTap: () {
+                           Navigator.push(
+                             context,
+                             MaterialPageRoute(
+                               builder: (context) => CustomerDetailScreen(customerId: cust['id']),
+                             ),
+                           );
+                        },
                       ),
                     );
                   }).toList(),

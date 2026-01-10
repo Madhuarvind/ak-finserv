@@ -2,8 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/language_service.dart';
 import '../utils/localizations.dart';
-import '../utils/theme.dart';
-import '../services/api_service.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -14,22 +12,9 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
-  final ApiService _apiService = ApiService();
-  String? _role;
-
   @override
   void initState() {
     super.initState();
-    _loadUserRole();
-  }
-
-  Future<void> _loadUserRole() async {
-    final role = await _apiService.getUserRole();
-    if (mounted) {
-      setState(() {
-        _role = role;
-      });
-    }
   }
 
   @override
@@ -37,30 +22,47 @@ class _SettingsScreenState extends State<SettingsScreen> {
     return Consumer<LanguageProvider>(
       builder: (context, languageProvider, child) {
         return Scaffold(
+          backgroundColor: Colors.white,
           appBar: AppBar(
+            backgroundColor: Colors.white,
+            elevation: 0,
+            leading: IconButton(
+              icon: const Icon(Icons.arrow_back, color: Colors.black),
+              onPressed: () => Navigator.pop(context),
+            ),
             title: Text(
               context.translate('settings'),
-              style: GoogleFonts.outfit(fontWeight: FontWeight.bold),
+              style: GoogleFonts.outfit(
+                color: Colors.black,
+                fontWeight: FontWeight.bold,
+                fontSize: 24,
+              ),
             ),
           ),
-          body: Padding(
-            padding: const EdgeInsets.all(24.0),
+          body: SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   context.translate('select_language'),
                   style: GoogleFonts.outfit(
-                    fontSize: 24, 
-                    fontWeight: FontWeight.w900,
+                    fontSize: 28,
+                    fontWeight: FontWeight.bold,
+                    color: const Color(0xFF64748B),
                   ),
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Change application appearance language',
-                  style: TextStyle(color: AppTheme.secondaryTextColor, fontSize: 14),
+                  "Change application appearance language",
+                  style: GoogleFonts.outfit(
+                    fontSize: 14,
+                    color: const Color(0xFF94A3B8),
+                  ),
                 ),
                 const SizedBox(height: 32),
+                
+                // Tamil Card
                 _buildLanguageCard(
                   context, 
                   'ta', 
@@ -69,6 +71,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   languageProvider
                 ),
                 const SizedBox(height: 16),
+                
+                // English Card
                 _buildLanguageCard(
                   context, 
                   'en', 
@@ -76,12 +80,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   '🇺🇸', 
                   languageProvider
                 ),
+                
                 const SizedBox(height: 16),
-                // Only show System Configuration for Admin role
-                if (_role == 'admin') 
-                 _buildOptionTile(context, "System Configuration", "Master settings for interest, penalties & rules", Icons.tune, () {
-                   Navigator.pushNamed(context, '/admin/master_settings');
-                 }),
+
+                _buildActionCard(
+                  context,
+                  "Security Hub",
+                  "Manage your biometric and login security",
+                  Icons.security,
+                  const Color(0xFFEFF6FF),
+                  const Color(0xFF3B82F6),
+                  () => Navigator.pushNamed(context, '/security')
+                ),
               ],
             ),
           ),
@@ -90,81 +100,96 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  Widget _buildOptionTile(BuildContext context, String title, String subtitle, IconData icon, VoidCallback onTap) {
-    return GestureDetector(
-      onTap: onTap,
+  Widget _buildLanguageCard(BuildContext context, String code, String name, String flag, LanguageProvider provider) {
+    final isSelected = provider.currentLocale.languageCode == code;
+    final borderColor = isSelected ? const Color(0xFFB4F23E) : Colors.black;
+    
+    return InkWell(
+      onTap: () => provider.setLanguage(code),
+      borderRadius: BorderRadius.circular(24),
       child: Container(
-        padding: const EdgeInsets.all(20),
+        height: 80,
+        padding: const EdgeInsets.symmetric(horizontal: 24),
         decoration: BoxDecoration(
-          color: AppTheme.surfaceColor,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: const Color(0xFF1E1E1E), 
-            width: 2
-          ),
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(color: borderColor, width: 2),
         ),
         child: Row(
           children: [
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: AppTheme.primaryColor.withValues(alpha: 0.1), 
-                borderRadius: BorderRadius.circular(12)
-              ),
-              child: Icon(icon, color: AppTheme.primaryColor, size: 24),
-            ),
+            Text(flag, style: const TextStyle(fontSize: 28)),
             const SizedBox(width: 16),
             Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(title, style: GoogleFonts.outfit(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textColor)),
-                  Text(subtitle, style: GoogleFonts.outfit(fontSize: 12, color: AppTheme.secondaryTextColor)),
-                ],
+              child: Text(
+                name,
+                style: GoogleFonts.outfit(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: isSelected ? const Color(0xFFB4F23E) : Colors.black,
+                ),
               ),
             ),
-            Icon(Icons.chevron_right, color: AppTheme.secondaryTextColor),
+            if (isSelected)
+              const Icon(Icons.check_circle, color: Color(0xFFB4F23E), size: 24),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildLanguageCard(
+  Widget _buildActionCard(
     BuildContext context, 
-    String code, 
-    String name, 
-    String flag, 
-    LanguageProvider provider
+    String title, 
+    String subtitle, 
+    IconData icon, 
+    Color iconBg, 
+    Color iconColor,
+    VoidCallback onTap
   ) {
-    bool isSelected = provider.currentLocale.languageCode == code;
-    return GestureDetector(
-      onTap: () => provider.setLanguage(code),
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(24),
       child: Container(
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
-          color: AppTheme.surfaceColor,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: isSelected ? AppTheme.primaryColor : const Color(0xFF1E1E1E), 
-            width: 2
-          ),
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(color: Colors.black, width: 2),
         ),
         child: Row(
           children: [
-            Text(flag, style: const TextStyle(fontSize: 24)),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: iconBg,
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Icon(icon, color: iconColor, size: 24),
+            ),
             const SizedBox(width: 16),
-            Text(
-              name,
-              style: GoogleFonts.outfit(
-                fontSize: 18,
-                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                color: isSelected ? AppTheme.primaryColor : AppTheme.textColor,
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: GoogleFonts.outfit(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black,
+                    ),
+                  ),
+                  Text(
+                    subtitle,
+                    style: GoogleFonts.outfit(
+                      fontSize: 12,
+                      color: const Color(0xFF64748B),
+                    ),
+                  ),
+                ],
               ),
             ),
-            const Spacer(),
-            if (isSelected)
-              const Icon(Icons.check_circle_rounded, color: AppTheme.primaryColor),
+            const Icon(Icons.chevron_right, color: Colors.black, size: 20),
           ],
         ),
       ),

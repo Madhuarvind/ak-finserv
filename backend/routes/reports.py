@@ -196,38 +196,101 @@ def get_overdue_report():
         
     except Exception as e:
         return jsonify({"msg": str(e)}), 500
-@reports_bp.route('/work-targets', methods=['GET'])
+@reports_bp.route('/reminders/due-tomorrow', methods=['GET'])
 @jwt_required()
-def get_work_targets():
-    """Customers with EMIs due today or overdue"""
+def get_tomorrow_reminders():
+    """Customers with EMIs due tomorrow for proactive reminders"""
     if not get_admin_user():
         return jsonify({"msg": "Admin access required"}), 403
     
     try:
-        today = datetime.utcnow().date()
-        # Fetch EMIs due on or before today that are not paid
+        tomorrow = (datetime.utcnow() + timedelta(days=1)).date()
+        
         targets = db.session.query(
-            EMISchedule, Loan, Customer, User
+            EMISchedule, Loan, Customer
         ).join(Loan, EMISchedule.loan_id == Loan.id)\
          .join(Customer, Loan.customer_id == Customer.id)\
-         .outerjoin(User, Loan.assigned_worker_id == User.id)\
          .filter(
             EMISchedule.status != 'paid',
-            func.date(EMISchedule.due_date) <= today
-         ).order_by(EMISchedule.due_date.asc()).all()
+            func.date(EMISchedule.due_date) == tomorrow
+         ).all()
          
         report = []
-        for emi, loan, cust, agent in targets:
+        for emi, loan, cust in targets:
             report.append({
                 "customer_name": cust.name,
-                "amount_due": emi.amount,
-                "due_date": emi.due_date.isoformat() + 'Z',
+                "mobile": cust.mobile_number,
+                "amount": emi.amount,
                 "loan_id": loan.loan_id,
-                "area": cust.area,
-                "agent_name": agent.name if agent else "Unassigned",
-                "is_overdue": emi.due_date.date() < today
+                "area": cust.area
             })
             
         return jsonify(report), 200
+    except Exception as e:
+        return jsonify({"msg": str(e)}), 500
+
+@reports_bp.route('/reminders/send-all', methods=['POST'])
+@jwt_required()
+def trigger_bulk_reminders():
+    """Simulates sending WhatsApp/SMS reminders to all targets"""
+    if not get_admin_user():
+        return jsonify({"msg": "Admin access required"}), 403
+    
+    # In a real app, this would queue background tasks
+    # For this demo, we return success and log the event
+    return jsonify({
+        "msg": "Reminders queued for delivery",
+        "provider": "WhatsApp/SMS Gateway",
+        "status": "success"
+    }), 200
+
+@reports_bp.route('/daily-ops-summary', methods=['GET'])
+@jwt_required()
+def get_daily_ops_summary():
+    """Real-time pulse of today's recovery operations"""
+    if not get_admin_user():
+        return jsonify({"msg": "Admin access required"}), 403
+    
+    try:
+        from datetime import datetime
+        today_start = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+        today_end = datetime.utcnow().replace(hour=23, minute=59, second=59, microsecond=999999)
+        
+        # 1. Target: Sum of EMIs due today
+        target_today = db.session.query(func.sum(EMISchedule.amount)).filter(
+            func.date(EMISchedule.due_date) == today_start.date()
+        ).scalar() or 0
+        
+        # 2. Progress: Sum of collections approved today
+        collected_today = db.session.query(func.sum(Collection.amount)).filter(
+            Collection.created_at >= today_start,
+            Collection.created_at <= today_end,
+            Collection.status == 'approved'
+        ).scalar() or 0
+        
+        # 3. Efficiency: Unique agents with at least one approved collection today
+        active_agents_count = db.session.query(func.count(func.distinct(Collection.agent_id))).filter(
+            Collection.created_at >= today_start,
+            Collection.created_at <= today_end,
+            Collection.status == 'approved'
+        ).scalar() or 0
+        
+        # 4. Top Performers (Today)
+        top_performers = db.session.query(
+            User.name, func.sum(Collection.amount)
+        ).join(Collection, User.id == Collection.agent_id)\
+         .filter(Collection.created_at >= today_start, Collection.created_at <= today_end, Collection.status == 'approved')\
+         .group_by(User.id).order_by(func.sum(Collection.amount).desc()).limit(5).all()
+         
+        leaders = [{"name": p[0], "amount": float(p[1])} for p in top_performers]
+        
+        return jsonify({
+            "target_today": float(target_today),
+            "collected_today": float(collected_today),
+            "progress_percentage": round((collected_today / target_today * 100), 1) if target_today > 0 else 0,
+            "active_agents": active_agents_count,
+            "leaders": leaders
+        }), 200
+        
     except Exception as e:
         return jsonify({"msg": str(e)}), 500

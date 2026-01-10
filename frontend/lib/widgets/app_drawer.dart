@@ -220,6 +220,15 @@ class AppDrawer extends StatelessWidget {
                         Navigator.pushNamed(context, '/admin/master_settings');
                       },
                     ),
+                    _buildDrawerItem(
+                      context,
+                      icon: Icons.storage_rounded,
+                      label: 'Database Viewer',
+                      onTap: () {
+                        Navigator.pop(context);
+                        Navigator.pushNamed(context, '/admin/db_viewer');
+                      },
+                    ),
                 ] else ...[
                   _buildDrawerItem(
                     context,

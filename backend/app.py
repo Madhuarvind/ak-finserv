@@ -29,6 +29,8 @@ def create_app():
     from routes.document import document_bp
     from routes.analytics import analytics_bp
     from routes.security import security_bp
+    from routes.settlement import settlement_bp
+    from routes.admin_tools import admin_tools_bp
     
     # Pre-load face verification model
     try:
@@ -47,6 +49,8 @@ def create_app():
     app.register_blueprint(document_bp, url_prefix='/api/document')
     app.register_blueprint(analytics_bp, url_prefix='/api/analytics')
     app.register_blueprint(security_bp, url_prefix='/api/security')
+    app.register_blueprint(settlement_bp, url_prefix='/api/settlement')
+    app.register_blueprint(admin_tools_bp, url_prefix='/api/admin')
 
     return app
 

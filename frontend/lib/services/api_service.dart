@@ -6,19 +6,30 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 
 class ApiService {
-  // Replace with your machine's IP (e.g., 192.168.1.5) if testing on a physical device
-  static const String _serverAddress = '192.168.104.113'; 
+  // Your PC's IP address
+  static const String _localIp = '172.1.25.67'; 
+  
+  // Using Local IP for Release testing so you can use the APK on your phone via WiFi
+  static const String _productionUrl = 'http://$_localIp:5000/api/auth'; 
 
   static String get baseUrl {
+    if (kReleaseMode) {
+      // In release mode (APK), use the production URL
+      // If you are just testing the APK locally, you can change this to use _localIp
+      return _productionUrl; 
+    }
+    
     if (kIsWeb || Platform.isWindows) {
       return 'http://localhost:5000/api/auth';
     }
-    // For Android, we use 127.0.0.1 and run "adb reverse tcp:5000 tcp:5000"
-    // This is much more reliable than Wi-Fi IPs which often change or are blocked by firewalls.
+    
     if (Platform.isAndroid) {
-      return 'http://127.0.0.1:5000/api/auth';
+      // 10.0.2.2 is the special IP for Android Emulator to access host localhost
+      // If running on physical device, we need the LAN IP
+      return 'http://$_localIp:5000/api/auth';
     }
-    return 'http://$_serverAddress:5000/api/auth';
+    
+    return 'http://$_localIp:5000/api/auth';
   }
 
   String get _apiBase => baseUrl.replaceFirst('/auth', '');
@@ -591,6 +602,28 @@ class ApiService {
     }
   }
 
+  // QR Code Lookup
+  Future<Map<String, dynamic>> getCustomerByQr(String qrCode) async {
+    final token = await _storage.read(key: 'jwt_token');
+    try {
+      final response = await http.get(
+        Uri.parse('$_apiBase/customer/qr/${Uri.encodeComponent(qrCode)}'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+      
+      if (response.statusCode == 200) {
+        return json.decode(response.body);
+      } else {
+        return {'msg': 'not_found'};
+      }
+    } catch (e) {
+      return {'msg': 'connection_error'};
+    }
+  }
+
   Future<Map<String, dynamic>> getAgentStats(String token) async {
     try {
       final response = await http.get(
@@ -776,6 +809,8 @@ class ApiService {
       return {'msg': 'connection_failed'};
     }
   }
+
+
 
   Future<List<dynamic>> getAllLines(String token) async {
     try {
@@ -1084,6 +1119,74 @@ class ApiService {
       return {'msg': 'connection_failed'};
     }
   }
+  // --- Settlement ---
+  Future<List<dynamic>> getDailySettlements(String token) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$_apiBase/settlement/today'),
+        headers: {'Authorization': 'Bearer $token'},
+      );
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      }
+      return [];
+    } catch (e) {
+      return [];
+    }
+  }
+
+  Future<Map<String, dynamic>> verifySettlement(Map<String, dynamic> data, String token) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$_apiBase/settlement/verify'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode(data),
+      );
+      return jsonDecode(response.body);
+    } catch (e) {
+      return {'msg': 'connection_failed'};
+    }
+  }
+
+  Future<List<dynamic>> getSettlementHistory(String token) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$_apiBase/settlement/history'),
+        headers: {'Authorization': 'Bearer $token'},
+      );
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      }
+      return [];
+    } catch (e) {
+      debugPrint('getSettlementHistory Error: $e');
+      return [];
+    }
+  }
+
+  Future<List<dynamic>> getRawTableData(String tableName, String token) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$_apiBase/admin/raw-table/$tableName'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      ).timeout(const Duration(seconds: 15));
+      
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      }
+      return [];
+    } catch (e) {
+      debugPrint('getRawTableData Error: $e');
+      return [];
+    }
+  }
+
   // --- Customer Sync ---
   Future<Map<String, dynamic>?> syncCustomers(List<Map<String, dynamic>> customers, String token) async {
     try {
@@ -1304,6 +1407,110 @@ class ApiService {
       return jsonDecode(response.body);
     } catch (e) {
       return {'duplicates_found': false, 'count': 0, 'duplicates': []};
+    }
+  }
+  Future<List<dynamic>> optimizeRoute(int lineId, double lat, double lng, String token) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$_apiBase/line/$lineId/optimize'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode({
+          'latitude': lat,
+          'longitude': lng,
+        }),
+      ).timeout(const Duration(seconds: 15));
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      }
+      return [];
+    } catch (e) {
+      debugPrint('optimizeRoute Error: $e');
+      return [];
+    }
+  }
+
+  Future<List<dynamic>> getDueTomorrowReminders(String token) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$_apiBase/reports/reminders/due-tomorrow'),
+        headers: {'Authorization': 'Bearer $token'},
+      ).timeout(const Duration(seconds: 15));
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      }
+      return [];
+    } catch (e) {
+      debugPrint('getDueTomorrowReminders Error: $e');
+      return [];
+    }
+  }
+
+  Future<Map<String, dynamic>> sendBulkReminders(String token) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$_apiBase/reports/reminders/send-all'),
+        headers: {'Authorization': 'Bearer $token'},
+      ).timeout(const Duration(seconds: 30));
+      return jsonDecode(response.body);
+    } catch (e) {
+      return {'msg': 'connection_failed'};
+    }
+  }
+
+  Future<Map<String, dynamic>> askAiAnalyst(String query, String token) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$_apiBase/admin/ai-analyst'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode({'query': query}),
+      ).timeout(const Duration(seconds: 20));
+      return jsonDecode(response.body);
+    } catch (e) {
+      return {
+        'text': 'I encountered a connection error. Please check your internet.',
+        'type': 'error'
+      };
+    }
+  }
+
+  Future<Map<String, dynamic>> getDailyOpsSummary(String token) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$_apiBase/reports/daily-ops-summary'),
+        headers: {'Authorization': 'Bearer $token'},
+      ).timeout(const Duration(seconds: 15));
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      }
+      return {};
+    } catch (e) {
+      debugPrint('getDailyOpsSummary Error: $e');
+      return {};
+    }
+  }
+
+  Future<Map<String, dynamic>> bulkReassignAgent(int fromId, int toId, String token) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$_apiBase/line/bulk-reassign'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode({
+          'from_agent_id': fromId,
+          'to_agent_id': toId,
+        }),
+      ).timeout(const Duration(seconds: 15));
+      return jsonDecode(response.body);
+    } catch (e) {
+      return {'msg': 'connection_failed'};
     }
   }
 }

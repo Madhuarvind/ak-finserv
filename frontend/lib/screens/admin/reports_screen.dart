@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:intl/intl.dart';
 import 'package:fl_chart/fl_chart.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class ReportsScreen extends StatefulWidget {
   const ReportsScreen({super.key});
@@ -35,16 +36,82 @@ class _ReportsScreenState extends State<ReportsScreen> with SingleTickerProvider
   List<dynamic> _agentList = [];
   bool _isLoadingAgents = false;
 
+  // Reminders State
+  List<dynamic> _remindersList = [];
+  bool _isLoadingReminders = false;
+
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 4, vsync: this);
+    _tabController = TabController(length: 5, vsync: this);
     _fetchDailyReport();
     _tabController.addListener(() {
       if (_tabController.index == 1 && _outstandingList.isEmpty) _fetchOutstanding();
       if (_tabController.index == 2 && _overdueList.isEmpty) _fetchOverdue();
       if (_tabController.index == 3 && _agentList.isEmpty) _fetchAgents();
+      if (_tabController.index == 4 && _remindersList.isEmpty) _fetchReminders();
     });
+  }
+
+  Future<void> _fetchReminders() async {
+    if (!mounted) return;
+    setState(() => _isLoadingReminders = true);
+    final token = await _storage.read(key: 'jwt_token');
+    if (token != null) {
+      final list = await _apiService.getDueTomorrowReminders(token);
+      if (mounted) setState(() { _remindersList = list; _isLoadingReminders = false; });
+    }
+  }
+
+  Future<void> _sendBulkReminders() async {
+    final token = await _storage.read(key: 'jwt_token');
+    if (!mounted) return;
+    if (token != null) {
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (ctx) => const Center(child: CircularProgressIndicator()),
+      );
+      
+      final res = await _apiService.sendBulkReminders(token);
+      
+      if (mounted) {
+        Navigator.pop(context); // Close loader
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("AI Blast: ${res['msg'] ?? 'Reminders sent'} via ${res['provider']}"),
+            backgroundColor: Colors.green,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _launchWhatsApp(String mobile, dynamic amount, String customerName) async {
+    // Standardize mobile for India (+91) if not already present
+    String phone = mobile.replaceAll(RegExp(r'\D'), '');
+    if (phone.length == 10) phone = "91$phone";
+    
+    final message = "Vanakkam $customerName, this is a reminder for your Vasool payment of ₹$amount due tomorrow. Please keep it ready. Thank you!";
+    final url = "whatsapp://send?phone=$phone&text=${Uri.encodeComponent(message)}";
+    final uri = Uri.parse(url);
+    
+    try {
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri, mode: LaunchMode.externalNonBrowserApplication);
+      } else {
+        // Fallback to web link if app not found
+        final webUrl = Uri.parse("https://wa.me/$phone?text=${Uri.encodeComponent(message)}");
+        await launchUrl(webUrl, mode: LaunchMode.externalApplication);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Error: Cannot open WhatsApp. $e")),
+        );
+      }
+    }
   }
 
   Future<void> _fetchDailyReport() async {
@@ -104,10 +171,11 @@ class _ReportsScreenState extends State<ReportsScreen> with SingleTickerProvider
           unselectedLabelColor: Colors.grey,
           indicatorColor: AppTheme.primaryColor,
           tabs: const [
-            Tab(text: "Daily Collection"),
+            Tab(text: "Daily"),
             Tab(text: "Outstanding"),
-            Tab(text: "Risk / Overdue"),
+            Tab(text: "Risk"),
             Tab(text: "Agents"),
+            Tab(text: "AI Reminders"),
           ],
         ),
       ),
@@ -118,6 +186,7 @@ class _ReportsScreenState extends State<ReportsScreen> with SingleTickerProvider
           _buildOutstandingTab(),
           _buildOverdueTab(),
           _buildAgentsTab(),
+          _buildRemindersTab(),
         ],
       ),
     );
@@ -190,7 +259,7 @@ class _ReportsScreenState extends State<ReportsScreen> with SingleTickerProvider
         Expanded(
           child: _isLoadingDaily 
             ? const Center(child: CircularProgressIndicator())
-            : _dailyData == null || (_dailyData!['report'] as List).isEmpty 
+            : (_dailyData == null || _dailyData!['report'] == null || (_dailyData!['report'] as List).isEmpty)
                 ? const Center(child: Text("No collections found"))
                 : ListView.builder(
                     itemCount: (_dailyData!['report'] as List).length,
@@ -281,6 +350,71 @@ class _ReportsScreenState extends State<ReportsScreen> with SingleTickerProvider
              );
            },
        );
+  }
+
+  Widget _buildRemindersTab() {
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.all(24),
+          child: Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(colors: [Colors.indigo[900]!, Colors.indigo[600]!]),
+              borderRadius: BorderRadius.circular(24),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.auto_awesome, color: Colors.amber, size: 32),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text("AI Reminders", style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18)),
+                      Text("${_remindersList.length} customers due tomorrow", style: const TextStyle(color: Colors.white70, fontSize: 13)),
+                    ],
+                  ),
+                ),
+                ElevatedButton(
+                  onPressed: _remindersList.isEmpty ? null : _sendBulkReminders,
+                  style: ElevatedButton.styleFrom(backgroundColor: Colors.amber, foregroundColor: Colors.black, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+                  child: const Text("Blast All", style: TextStyle(fontWeight: FontWeight.bold)),
+                ),
+              ],
+            ),
+          ),
+        ),
+        Expanded(
+          child: _isLoadingReminders
+            ? const Center(child: CircularProgressIndicator())
+            : _remindersList.isEmpty
+                ? const Center(child: Text("No upcoming payments found for tomorrow"))
+                : ListView.builder(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    itemCount: _remindersList.length,
+                    itemBuilder: (ctx, i) {
+                      final item = _remindersList[i];
+                      return Container(
+                        margin: const EdgeInsets.only(bottom: 12),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(color: Colors.black.withValues(alpha: 0.04)),
+                        ),
+                        child: ListTile(
+                          onTap: () => _launchWhatsApp(item['mobile'] ?? '', item['amount'], item['customer_name']),
+                          leading: CircleAvatar(backgroundColor: Colors.indigo[50], child: Icon(Icons.send_rounded, color: Colors.green, size: 20)),
+                          title: Text(item['customer_name'], style: const TextStyle(fontWeight: FontWeight.bold)),
+                          subtitle: Text("₹${item['amount']} • ${item['area']}"),
+                          trailing: const Icon(Icons.chevron_right, color: Colors.grey),
+                        ),
+                      );
+                    },
+                  ),
+        ),
+      ],
+    );
   }
 
   Widget _buildSummaryCard(String title, String value, Color color) {

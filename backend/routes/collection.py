@@ -72,6 +72,24 @@ def submit_collection():
     collect_status = 'pending'  # Requires admin approval
     if fraud_flag:
         collect_status = 'flagged' # Admin must review
+    
+    # --- PHASE 12: AI AUTONOMOUS MANAGER (AUTO-APPROVAL) ---
+    # Goal: Zero-touch approval for trusted agents in correct location
+    # Reduce manual overhead by 80% for high-trust agents
+    if not fraud_flag and payment_mode == 'cash' and distance is not None and distance < 50:
+        # Check Agent Trust History
+        # If agent has 0 flagged collections in history, they are trusted
+        flagged_count = Collection.query.filter_by(agent_id=user.id, status='flagged').count()
+        if flagged_count == 0:
+            collect_status = 'approved'
+            # Log AI auto-approval
+            ai_log = LoanAuditLog(
+                loan_id=loan.id,
+                action='AI_AUTO_APPROVAL',
+                performed_by=user.id,
+                remarks="AI Autonomous Manager: Entry verified via strict geofencing and agent trust score. Auto-approved."
+            )
+            db.session.add(ai_log)
 
     # 2. Record Collection
     new_collection = Collection(
@@ -97,50 +115,61 @@ def submit_collection():
     db.session.add(new_collection)
     
     # 3. Allocating Payment to EMIs (The "Brain")
-    remaining = amount
-    emis = EMISchedule.query.filter_by(loan_id=loan_id).filter(EMISchedule.status != 'paid').order_by(EMISchedule.due_date).all()
-    
-    allocation_details = []
-    
-    for emi in emis:
-        if remaining <= 0: break
+    # ONLY apply financial impact if status is approved (Manual or AI)
+    if collect_status == 'approved':
+        remaining = amount
+        emis = EMISchedule.query.filter_by(loan_id=loan_id).filter(EMISchedule.status != 'paid').order_by(EMISchedule.due_date).all()
         
-        # If emi.balance is None (legacy data), assume full amount
-        current_balance = emi.balance if emi.balance is not None else emi.amount
+        allocation_details = []
         
-        check_amount = min(remaining, current_balance)
-        
-        new_balance = current_balance - check_amount
-        remaining -= check_amount
-        
-        emi.balance = new_balance
-        if new_balance <= 0.1: # Float tolerance
-            emi.status = 'paid'
-            emi.balance = 0
-        else:
-            emi.status = 'partial'
+        for emi in emis:
+            if remaining <= 0: break
             
-        allocation_details.append(f"EMI #{emi.emi_no}: Paid {check_amount}")
+            # If emi.balance is None (legacy data), assume full amount
+            current_balance = emi.balance if emi.balance is not None else emi.amount
+            
+            check_amount = min(remaining, current_balance)
+            
+            new_balance = current_balance - check_amount
+            remaining -= check_amount
+            
+            emi.balance = new_balance
+            if new_balance <= 0.1: # Float tolerance
+                emi.status = 'paid'
+                emi.balance = 0
+            else:
+                emi.status = 'partial'
+                
+            allocation_details.append(f"EMI #{emi.emi_no}: Paid {check_amount}")
 
-    # 4. Update Loan Balance
-    loan.pending_amount = max(0, loan.pending_amount - amount)
-    
-    # Check for Loan Closure
-    if loan.pending_amount <= 10: # Small tolerance for calc errors
-        # Verify all EMIs are paid
-        all_paid = not EMISchedule.query.filter_by(loan_id=loan_id).filter(EMISchedule.status != 'paid').first()
-        if all_paid:
-            loan.status = 'closed'
-            allocation_details.append("Loan Closed")
-            
-    # 5. Audit Log
-    audit = LoanAuditLog(
-        loan_id=loan.id,
-        action='COLLECTION_RECEIVED',
-        performed_by=user.id,
-        remarks=f"Collected {amount} via {payment_mode}. " + ", ".join(allocation_details)
-    )
-    db.session.add(audit)
+        # 4. Update Loan Balance
+        loan.pending_amount = max(0, loan.pending_amount - amount)
+        
+        # Check for Loan Closure
+        if loan.pending_amount <= 10: # Small tolerance for calc errors
+            # Verify all EMIs are paid
+            all_paid = not EMISchedule.query.filter_by(loan_id=loan_id).filter(EMISchedule.status != 'paid').first()
+            if all_paid:
+                loan.status = 'closed'
+                allocation_details.append("Loan Closed")
+                
+        # 5. Audit Log (Financial)
+        audit = LoanAuditLog(
+            loan_id=loan.id,
+            action='COLLECTION_APPROVED',
+            performed_by=user.id,
+            remarks=f"Financials updated. Collected {amount} via {payment_mode}. " + ", ".join(allocation_details)
+        )
+        db.session.add(audit)
+    else:
+        # Audit Log (Record only)
+        audit = LoanAuditLog(
+            loan_id=loan.id,
+            action='COLLECTION_SUBMITTED',
+            performed_by=user.id,
+            remarks=f"Collection of {amount} registered as {collect_status}. Financials pending approval."
+        )
+        db.session.add(audit)
 
     try:
         db.session.commit()
@@ -271,13 +300,45 @@ def update_collection_status(collection_id):
         
     collection.status = status
     
-    if status == 'approved':
+    if status == 'approved' and collection.status != 'approved':
         loan = Loan.query.get(collection.loan_id)
         if loan:
-            loan.pending_amount -= collection.amount
-            if loan.pending_amount <= 0:
-                loan.pending_amount = 0
-                loan.status = 'closed'
+            # Applying financial update only now
+            collection.status = 'approved'
+            
+            remaining = collection.amount
+            emis = EMISchedule.query.filter_by(loan_id=loan.id).filter(EMISchedule.status != 'paid').order_by(EMISchedule.due_date).all()
+            
+            allocation_details = []
+            for emi in emis:
+                if remaining <= 0: break
+                current_balance = emi.balance if emi.balance is not None else emi.amount
+                check_amount = min(remaining, current_balance)
+                emi.balance = current_balance - check_amount
+                remaining -= check_amount
+                if emi.balance <= 0.1:
+                    emi.status = 'paid'
+                    emi.balance = 0
+                else:
+                    emi.status = 'partial'
+                allocation_details.append(f"EMI #{emi.emi_no}: Paid {check_amount}")
+
+            loan.pending_amount = max(0, loan.pending_amount - collection.amount)
+            if loan.pending_amount <= 10:
+                all_paid = not EMISchedule.query.filter_by(loan_id=loan.id).filter(EMISchedule.status != 'paid').first()
+                if all_paid:
+                    loan.status = 'closed'
+            
+            # Audit log
+            audit = LoanAuditLog(
+                loan_id=loan.id,
+                action='COLLECTION_APPROVED_BY_ADMIN',
+                performed_by=user.id,
+                remarks=f"Admin manual approval. Collected {collection.amount}. " + ", ".join(allocation_details)
+            )
+            db.session.add(audit)
+    else:
+        collection.status = status
                 
     db.session.commit()
     return jsonify({"msg": "collection_updated_successfully", "status": status}), 200

@@ -1,7 +1,10 @@
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
-from models import db, User, Customer, Line, LineCustomer, UserRole
+from models import db, User, Customer, Line, LineCustomer, UserRole, Loan, EMISchedule, Collection
 from datetime import datetime
+from utils.interest_utils import get_distance_meters
+from utils.ml_risk import risk_engine
+import numpy as np
 
 line_bp = Blueprint('line', __name__)
 
@@ -174,3 +177,108 @@ def toggle_line_lock(line_id):
     db.session.commit()
     
     return jsonify({"msg": "line_status_updated", "is_locked": line.is_locked}), 200
+@line_bp.route('/<int:line_id>/optimize', methods=['POST'])
+@jwt_required()
+def optimize_line_route(line_id):
+    """
+    AI-Powered Route Optimization
+    Calculates priority based on: Proximity (40%) and AI Risk Score (60%)
+    """
+    data = request.get_json()
+    current_lat = data.get('latitude')
+    current_lng = data.get('longitude')
+    
+    line = Line.query.get_or_404(line_id)
+    mappings = LineCustomer.query.filter_by(line_id=line_id).all()
+    
+    results = []
+    today = datetime.utcnow()
+    
+    for mapping in mappings:
+        customer = mapping.customer
+        # 1. Fetch AI Risk Score for this customer's active loan
+        active_loan = Loan.query.filter_by(customer_id=customer.id, status='active').first()
+        
+        risk_score = 0
+        if active_loan:
+            # Simplified feature extraction for speed
+            missed = EMISchedule.query.filter(
+                EMISchedule.loan_id == active_loan.id,
+                EMISchedule.status != 'paid',
+                EMISchedule.due_date < today
+            ).count()
+            
+            last_pay = Collection.query.filter_by(loan_id=active_loan.id, status='approved')\
+                        .order_by(Collection.created_at.desc()).first()
+            days_since = (today - last_pay.created_at).days if last_pay else 30
+            
+            # utilization = (pending/principal)*100
+            util = (active_loan.pending_amount / active_loan.principal_amount * 100) if active_loan.principal_amount > 0 else 50
+            
+            prob, _ = risk_engine.predict_risk(missed, missed*10, days_since, 0, util)
+            risk_score = prob
+        
+        # 2. Proximity Analysis
+        dist_score = 0
+        distance = None
+        if current_lat and current_lng and customer.latitude and customer.longitude:
+            distance = get_distance_meters(current_lat, current_lng, customer.latitude, customer.longitude)
+            # Normalize distance (closer = higher score). 0m = 100, 5000m+ = 0
+            dist_score = max(0, 100 - (distance / 50)) 
+            
+        # 3. Final AI Priority Calculation
+        # Priority = (Proximity * 0.4) + (Risk * 0.6)
+        # We prioritize high-risk customers who are close by
+        priority = (dist_score * 0.4) + (risk_score * 0.6)
+        
+        results.append({
+            "id": customer.id,
+            "name": customer.name,
+            "mobile": customer.mobile_number,
+            "area": customer.area,
+            "sequence": mapping.sequence_order,
+            "risk_score": round(risk_score, 1),
+            "distance_meters": round(distance) if distance is not None else None,
+            "ai_priority": round(priority, 1)
+        })
+        
+    # Sort by AI Priority (Highest first)
+    results.sort(key=lambda x: x['ai_priority'], reverse=True)
+    
+    return jsonify(results), 200
+
+@line_bp.route('/bulk-reassign', methods=['POST'])
+@jwt_required()
+def bulk_reassign_agent():
+    """Swap all customers and lines from one agent to another"""
+    identity = get_jwt_identity()
+    admin = User.query.filter((User.mobile_number == identity) | (User.username == identity) | (User.id == identity)).first()
+    
+    if not admin or admin.role != UserRole.ADMIN:
+        return jsonify({"msg": "Access Denied"}), 403
+        
+    data = request.get_json()
+    from_agent_id = data.get('from_agent_id')
+    to_agent_id = data.get('to_agent_id')
+    
+    if not from_agent_id or not to_agent_id:
+        return jsonify({"msg": "Both source and target agents are required"}), 400
+        
+    try:
+        # 1. Update all Lines assigned to the agent
+        lines_updated = Line.query.filter_by(agent_id=from_agent_id).update({Line.agent_id: to_agent_id})
+        
+        # 2. Update all Customers assigned to the agent (for direct oversight)
+        customers_updated = Customer.query.filter_by(assigned_worker_id=from_agent_id).update({Customer.assigned_worker_id: to_agent_id})
+        
+        db.session.commit()
+        
+        return jsonify({
+            "msg": "bulk_reassignment_successful",
+            "lines_affected": lines_updated,
+            "customers_affected": customers_updated
+        }), 200
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"msg": str(e)}), 500
