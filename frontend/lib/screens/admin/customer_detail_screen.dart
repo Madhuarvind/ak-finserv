@@ -7,6 +7,7 @@ import 'edit_customer_screen.dart';
 import 'add_loan_screen.dart';
 import 'emi_schedule_screen.dart';
 import 'loan_documents_screen.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 
 class CustomerDetailScreen extends StatefulWidget {
   final int customerId;
@@ -176,6 +177,20 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
                                  ),
                                ),
                              ],
+                           ),
+                           const SizedBox(height: 12),
+                           SizedBox(
+                             width: double.infinity,
+                             child: OutlinedButton.icon(
+                               onPressed: () => _showPassbookQR(),
+                               icon: const Icon(Icons.qr_code_2_rounded, size: 20),
+                               label: const Text("SHOW PASSBOOK QR"),
+                               style: OutlinedButton.styleFrom(
+                                 side: const BorderSide(color: AppTheme.primaryColor),
+                                 padding: const EdgeInsets.symmetric(vertical: 12),
+                                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                               ),
+                             ),
                            ),
                          ],
                        ),
@@ -447,16 +462,16 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Change Customer Status'),
-        content: RadioGroup<String>(
-          groupValue: currentStatus,
-          onChanged: (val) => Navigator.pop(context, val),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: statuses.map((s) => RadioListTile<String>(
-              title: Text(s.toUpperCase()),
-              value: s,
-            )).toList(),
-          ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: statuses.map((s) => RadioListTile<String>(
+            title: Text(s.toUpperCase()),
+            value: s,
+            // ignore: deprecated_member_use
+            groupValue: currentStatus,
+            // ignore: deprecated_member_use
+            onChanged: (val) => Navigator.pop(context, val),
+          )).toList(),
         ),
       ),
     );
@@ -731,5 +746,51 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
           }
       }
     }
+  }
+
+  void _showPassbookQR() {
+    if (_customer == null) return;
+    _displayQRDialog(_customer!['customer_id'] ?? 'N/A');
+  }
+
+  void _displayQRDialog(String customerId) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+        title: Center(child: Text("Customer Passbook", style: GoogleFonts.outfit(fontWeight: FontWeight.bold))),
+        content: SizedBox(
+          width: 280,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text("Scan this permanent QR to view customer passbook", textAlign: TextAlign.center, style: TextStyle(fontSize: 12, color: Colors.grey)),
+              const SizedBox(height: 24),
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(20),
+                  boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10)],
+                ),
+                child: QrImageView(
+                  data: customerId,
+                  version: QrVersions.auto,
+                  size: 200.0,
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(_customer!['name'], style: GoogleFonts.outfit(fontSize: 18, fontWeight: FontWeight.bold)),
+              Text("ID: $customerId", style: const TextStyle(fontSize: 12, color: AppTheme.primaryColor, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 8),
+              const Text("Unified QR for ID Card & Passbook", style: TextStyle(fontSize: 10, color: Colors.grey)),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("CLOSE"))
+        ],
+      ),
+    );
   }
 }

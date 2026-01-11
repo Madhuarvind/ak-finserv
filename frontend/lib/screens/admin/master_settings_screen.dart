@@ -22,6 +22,8 @@ class _MasterSettingsScreenState extends State<MasterSettingsScreen> {
   final _penaltyController = TextEditingController();
   final _gracePeriodController = TextEditingController();
   final _maxLoanController = TextEditingController();
+  final _upiIdController = TextEditingController();
+  final _upiQrUrlController = TextEditingController();
   
   // Toggles
   bool _workerCanEditCustomer = false;
@@ -42,6 +44,8 @@ class _MasterSettingsScreenState extends State<MasterSettingsScreen> {
           _penaltyController.text = settings['penalty_amount'] ?? '50.0';
           _gracePeriodController.text = settings['grace_period_days'] ?? '3';
           _maxLoanController.text = settings['max_loan_amount'] ?? '50000.0';
+          _upiIdController.text = settings['upi_id'] ?? 'arun.finance@okaxis';
+          _upiQrUrlController.text = settings['upi_qr_url'] ?? '';
           _workerCanEditCustomer = (settings['worker_can_edit_customer'] ?? 'false') == 'true';
           _isLoading = false;
         });
@@ -60,6 +64,8 @@ class _MasterSettingsScreenState extends State<MasterSettingsScreen> {
         "penalty_amount": _penaltyController.text,
         "grace_period_days": _gracePeriodController.text,
         "max_loan_amount": _maxLoanController.text,
+        "upi_id": _upiIdController.text,
+        "upi_qr_url": _upiQrUrlController.text,
         "worker_can_edit_customer": _workerCanEditCustomer.toString(),
       };
       
@@ -112,6 +118,13 @@ class _MasterSettingsScreenState extends State<MasterSettingsScreen> {
                    _buildCard([
                      _buildTextField("Penalty Amount (₹)", _penaltyController, icon: Icons.warning_amber),
                      _buildTextField("Grace Period (Days)", _gracePeriodController, icon: Icons.calendar_today),
+                   ]),
+                   
+                   const SizedBox(height: 24),
+                   _buildSectionHeader("UPI Payment (Collection)"),
+                   _buildCard([
+                     _buildTextField("Default UPI ID", _upiIdController, icon: Icons.account_balance_wallet_rounded),
+                     _buildTextField("Custom QR Image URL (Optional)", _upiQrUrlController, icon: Icons.image_rounded),
                    ]),
                    
                    const SizedBox(height: 24),

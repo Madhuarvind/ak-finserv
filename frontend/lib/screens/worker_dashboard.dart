@@ -230,8 +230,6 @@ class _WorkerDashboardState extends State<WorkerDashboard> {
                           scrollDirection: Axis.horizontal,
                           padding: const EdgeInsets.symmetric(horizontal: 24),
                           children: [
-                            _buildModernActionTile(context, context.translate('collection'), Icons.add_circle_outline_rounded, '/collection_entry', Colors.green),
-                            const SizedBox(width: 16),
                             _buildModernActionTile(context, "My Stats", Icons.assessment_outlined, '/worker/performance', Colors.cyan),
                             const SizedBox(width: 16),
                             _buildModernActionTile(context, 'Customers', Icons.people_outline_rounded, '', Colors.teal, isCustom: true, onTap: () {
@@ -250,16 +248,25 @@ class _WorkerDashboardState extends State<WorkerDashboard> {
                                if (result != null) {
                                   if (!context.mounted) return;
                                   
-                                  // Show processing
-                                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Processing QR...")));
+                                   final resStr = result.toString().trim();
+                                   // Detect Digital Passbook (Unified ID or UUID)
+                                   final uuidRegex = RegExp(r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$', caseSensitive: false);
+                                   
+                                   if (uuidRegex.hasMatch(resStr) || resStr.startsWith('CUST-')) {
+                                      Navigator.pushNamed(context, '/public/passbook', arguments: resStr);
+                                      return;
+                                   }
                                   
-                                  final customerData = await _apiService.getCustomerByQr(result.toString());
+                                   // Show processing for regular customer QR
+                                   ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Identifying Customer...")));
+                                   
+                                   final customerData = await _apiService.getCustomerByQr(resStr);
                                   
                                   if (!context.mounted) return;
                                   
-                                  if (customerData['msg'] == 'not_found') {
-                                     ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Customer not found!"), backgroundColor: Colors.red));
-                                  } else if (customerData['id'] != null) {
+                                   if (customerData['msg'] == 'not_found' || customerData['id'] == null) {
+                                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Customer not found!"), backgroundColor: Colors.red));
+                                   } else if (customerData['id'] != null) {
                                      // Navigate to Collection Entry for this customer
                                      Navigator.pushNamed(
                                        context, 

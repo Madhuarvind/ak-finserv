@@ -7,6 +7,8 @@ import '../services/local_db_service.dart';
 import '../utils/localizations.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:flutter/services.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 
 class CollectionEntryScreen extends StatefulWidget {
   const CollectionEntryScreen({super.key});
@@ -29,6 +31,8 @@ class _CollectionEntryScreenState extends State<CollectionEntryScreen> {
   String _paymentMode = 'cash';
   bool _isLoading = false;
   Position? _currentPosition;
+  Map<String, dynamic> _systemSettings = {};
+  int? _lineId;
 
   @override
   void initState() {
@@ -38,12 +42,18 @@ class _CollectionEntryScreenState extends State<CollectionEntryScreen> {
     // Check for pre-selected customer from arguments
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final args = ModalRoute.of(context)?.settings.arguments;
-      if (args != null && args is Map<String, dynamic>) {
+      if (args != null && args is Map) {
+        final Map<String, dynamic> customerData = Map<String, dynamic>.from(args);
         setState(() {
-          _selectedCustomer = args;
-          _currentStep = 1;
+          _selectedCustomer = customerData;
+          _lineId = customerData['line_id'];
+          // Use id or customer_id depending on context
+          final cid = customerData['id'] ?? customerData['customer_id'];
+          if (cid != null) {
+             _currentStep = 1; // Advance to Amount step
+             _fetchLoans(cid);
+          }
         });
-        _fetchLoans(args['id']);
       }
     });
   }
@@ -69,6 +79,17 @@ class _CollectionEntryScreenState extends State<CollectionEntryScreen> {
         _loans = result;
         _isLoading = false;
       });
+      _fetchSettings();
+    }
+  }
+
+  Future<void> _fetchSettings() async {
+    final token = await _storage.read(key: 'jwt_token');
+    if (token != null) {
+      final settings = await _apiService.getSystemSettings(token);
+      if (mounted) {
+        setState(() => _systemSettings = settings);
+      }
     }
   }
 
@@ -128,6 +149,7 @@ class _CollectionEntryScreenState extends State<CollectionEntryScreen> {
         loanId: collectionData['loan_id'] as int,
         amount: collectionData['amount'] as double,
         paymentMode: collectionData['payment_mode'] as String,
+        lineId: _lineId,
         latitude: collectionData['latitude'] as double?,
         longitude: collectionData['longitude'] as double?,
         token: token,
@@ -328,24 +350,123 @@ class _CollectionEntryScreenState extends State<CollectionEntryScreen> {
         ),
         const SizedBox(height: 20),
         const Text('Payment Mode', style: TextStyle(fontWeight: FontWeight.bold)),
-        RadioGroup<String>(
-          groupValue: _paymentMode,
-          onChanged: (v) => setState(() => _paymentMode = v!),
-          child: Row(
-            children: [
-              Radio<String>(
-                value: 'cash',
-              ),
-              const Text('Cash'),
-              const SizedBox(width: 20),
-              Radio<String>(
-                value: 'upi',
-              ),
-              const Text('UPI'),
-            ],
-          ),
+        Column(
+          children: [
+            RadioListTile<String>(
+              title: const Text('Cash'),
+              value: 'cash',
+              // ignore: deprecated_member_use
+              groupValue: _paymentMode,
+              // ignore: deprecated_member_use
+              onChanged: (v) => setState(() => _paymentMode = v!),
+              contentPadding: EdgeInsets.zero,
+            ),
+            RadioListTile<String>(
+              title: const Text('UPI'),
+              value: 'upi',
+              // ignore: deprecated_member_use
+              groupValue: _paymentMode,
+              // ignore: deprecated_member_use
+              onChanged: (v) => setState(() => _paymentMode = v!),
+              contentPadding: EdgeInsets.zero,
+            ),
+          ],
         ),
+        if (_paymentMode == 'upi') ...[
+          const SizedBox(height: 16),
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.indigo[50],
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: Colors.indigo.withValues(alpha: 0.1)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text("Pay to UPI ID", style: GoogleFonts.outfit(fontSize: 12, color: Colors.indigo[900], fontWeight: FontWeight.bold)),
+                    _buildCopyButton(_systemSettings['upi_id'] ?? 'arun.finance@okaxis'),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  _systemSettings['upi_id'] ?? 'arun.finance@okaxis',
+                  style: GoogleFonts.outfit(fontSize: 16, fontWeight: FontWeight.w900, color: Colors.indigo[900]),
+                ),
+                const SizedBox(height: 16),
+                Center(
+                  child: ElevatedButton.icon(
+                    onPressed: () => _showQRCodeDialog(context),
+                    icon: const Icon(Icons.qr_code_scanner_rounded, size: 18),
+                    label: const Text("SHOW QR CODE"),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.indigo[900],
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ],
+    );
+  }
+
+  Widget _buildCopyButton(String text) {
+    return InkWell(
+      onTap: () {
+        Clipboard.setData(ClipboardData(text: text));
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("UPI ID copied to clipboard"), behavior: SnackBarBehavior.floating));
+      },
+      child: Container(
+        padding: const EdgeInsets.all(4),
+        decoration: BoxDecoration(color: AppTheme.primaryColor.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(12)),
+        child: Icon(Icons.copy_rounded, size: 16, color: Colors.indigo[900]),
+      ),
+    );
+  }
+
+  void _showQRCodeDialog(BuildContext context) {
+    final upiId = _systemSettings['upi_id'] ?? 'arun.finance@okaxis';
+    final amount = _amountController.text;
+    final amountStr = amount.isEmpty ? '0' : amount; // Ensure amount is not empty for UPI URL
+    final upiUrl = "upi://pay?pa=$upiId&pn=${Uri.encodeComponent('Arun Finance')}&am=$amountStr&cu=INR";
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        title: Center(child: Text("Scan to Pay", style: GoogleFonts.outfit(fontWeight: FontWeight.bold))),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (_systemSettings['upi_qr_url'] != null && _systemSettings['upi_qr_url'].toString().isNotEmpty)
+              Image.network(_systemSettings['upi_qr_url'].toString(), height: 200, errorBuilder: (context, error, stackTrace) => const Icon(Icons.broken_image, size: 50))
+            else
+              SizedBox(
+                height: 200,
+                width: 200,
+                child: QrImageView(
+                  data: upiUrl,
+                  version: QrVersions.auto,
+                  size: 200.0,
+                ),
+              ),
+            const SizedBox(height: 16),
+            Text("₹$amount", style: GoogleFonts.outfit(fontSize: 24, fontWeight: FontWeight.w900)),
+            const SizedBox(height: 8),
+            Text(upiId, style: const TextStyle(color: Colors.grey, fontSize: 12)),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("CLOSE")),
+        ],
+      ),
     );
   }
 

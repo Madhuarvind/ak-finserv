@@ -497,14 +497,18 @@ class ApiService {
   Future<List<dynamic>> getCustomers(String token) async {
     try {
       final response = await http.get(
-        Uri.parse('$_apiBase/collection/customers'),
+        Uri.parse('$_apiBase/customer/list'),
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer $token'
         },
       ).timeout(const Duration(seconds: 10));
       if (response.statusCode == 200) {
-        return jsonDecode(response.body);
+        final decoded = jsonDecode(response.body);
+        if (decoded is Map && decoded.containsKey('customers')) {
+          return decoded['customers'] as List<dynamic>;
+        }
+        return (decoded is List) ? decoded : [];
       }
       return [];
     } catch (e) {
@@ -554,6 +558,7 @@ class ApiService {
     required int loanId,
     required double amount,
     required String paymentMode,
+    int? lineId,
     double? latitude,
     double? longitude,
     required String token,
@@ -569,6 +574,7 @@ class ApiService {
           'loan_id': loanId,
           'amount': amount,
           'payment_mode': paymentMode,
+          'line_id': lineId,
           'latitude': latitude,
           'longitude': longitude,
         }),
@@ -1080,7 +1086,7 @@ class ApiService {
         },
       ).timeout(const Duration(seconds: 10));
       if (response.statusCode == 200) {
-        return jsonDecode(response.body);
+        return jsonDecode(response.body) ?? [];
       }
       return [];
     } catch (e) {
@@ -1479,6 +1485,22 @@ class ApiService {
     }
   }
 
+  Future<Map<String, dynamic>> getAIInsights(String token) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$_apiBase/reports/dashboard-insights'),
+        headers: {'Authorization': 'Bearer $token'},
+      ).timeout(const Duration(seconds: 15));
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      }
+      return {};
+    } catch (e) {
+      debugPrint('getAIInsights Error: $e');
+      return {};
+    }
+  }
+
   Future<Map<String, dynamic>> getDailyOpsSummary(String token) async {
     try {
       final response = await http.get(
@@ -1510,6 +1532,53 @@ class ApiService {
       ).timeout(const Duration(seconds: 15));
       return jsonDecode(response.body);
     } catch (e) {
+      return {'msg': 'connection_failed'};
+    }
+  }
+
+  // Digital Passbook
+  Future<Map<String, dynamic>> getPassbookShareToken(int customerId, String token) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$_apiBase/customer/$customerId/share-token'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      ).timeout(const Duration(seconds: 10));
+      return jsonDecode(response.body);
+    } catch (e) {
+      return {'msg': 'connection_failed'};
+    }
+  }
+
+  Future<Map<String, dynamic>> getPublicPassbook(String pbToken) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$_apiBase/customer/public/passbook/$pbToken'),
+      ).timeout(const Duration(seconds: 10));
+      return jsonDecode(response.body);
+    } catch (e) {
+      return {'msg': 'connection_failed'};
+    }
+  }
+
+  Future<Map<String, dynamic>> getLineSummaryReport(int lineId, String period, String? date, String token) async {
+    try {
+      String query = '?period=$period';
+      if (date != null) query += '&date=$date';
+      
+      final response = await http.get(
+        Uri.parse('$_apiBase/reports/line/$lineId$query'),
+        headers: {'Authorization': 'Bearer $token'},
+      ).timeout(const Duration(seconds: 15));
+      
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      }
+      return {'msg': 'server_error', 'code': response.statusCode};
+    } catch (e) {
+      debugPrint('getLineSummaryReport Error: $e');
       return {'msg': 'connection_failed'};
     }
   }

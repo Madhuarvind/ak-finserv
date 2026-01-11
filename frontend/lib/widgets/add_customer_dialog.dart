@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
 import '../utils/localizations.dart';
+import '../screens/customer_id_card_screen.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 class AddCustomerDialog extends StatefulWidget {
@@ -15,6 +16,7 @@ class _AddCustomerDialogState extends State<AddCustomerDialog> {
   final _mobileController = TextEditingController();
   final _areaController = TextEditingController();
   final _addressController = TextEditingController();
+  final _idProofController = TextEditingController();
   final _apiService = ApiService();
   final _storage = const FlutterSecureStorage();
   bool _isLoading = false;
@@ -25,6 +27,7 @@ class _AddCustomerDialogState extends State<AddCustomerDialog> {
     _mobileController.dispose();
     _areaController.dispose();
     _addressController.dispose();
+    _idProofController.dispose();
     super.dispose();
   }
 
@@ -42,11 +45,27 @@ class _AddCustomerDialogState extends State<AddCustomerDialog> {
           'mobile_number': _mobileController.text,
           'area': _areaController.text,
           'address': _addressController.text,
+          'id_proof_number': _idProofController.text,
         }, token);
 
         if (mounted) {
           if (result['msg'] == 'customer_created_successfully') {
             Navigator.pop(context, true);
+            // Show the ID Card
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => CustomerIdCardScreen(
+                  customer: {
+                    'id': result['id'],
+                    'customer_id': result['customer_id'],
+                    'name': _nameController.text,
+                    'mobile': _mobileController.text,
+                    'area': _areaController.text,
+                  },
+                ),
+              ),
+            );
           } else {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(content: Text(result['msg'] ?? 'Failed to create customer')),
@@ -98,7 +117,7 @@ class _AddCustomerDialogState extends State<AddCustomerDialog> {
           TextField(
             controller: _areaController,
             decoration: InputDecoration(
-              labelText: local.translate('area'),
+              labelText: "${local.translate('area')} (Optional)",
               border: const OutlineInputBorder(),
             ),
           ),
@@ -107,7 +126,15 @@ class _AddCustomerDialogState extends State<AddCustomerDialog> {
             controller: _addressController,
             maxLines: 2,
             decoration: InputDecoration(
-              labelText: local.translate('address'),
+              labelText: "${local.translate('address')} (Optional)",
+              border: const OutlineInputBorder(),
+            ),
+          ),
+          const SizedBox(height: 16),
+          TextField(
+            controller: _idProofController,
+            decoration: InputDecoration(
+              labelText: "ID Proof / Aadhar (Optional)",
               border: const OutlineInputBorder(),
             ),
           ),

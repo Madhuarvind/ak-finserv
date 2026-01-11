@@ -1,0 +1,55 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  pull_request:
+    branches: [ "main", "master" ]
+
+jobs:
+  backend-checks:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./backend
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Set up Python 3.12
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.12'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install flake8 black bandit
+
+    - name: Check Formatting (Black)
+      run: black --check .
+
+    - name: Linting (Flake8)
+      run: flake8 .
+
+    - name: Security Scan (Bandit)
+      run: bandit -r . -x ./venv -lll
+
+  # deploy:
+  #   needs: backend-checks
+  #   runs-on: ubuntu-latest
+  #   if: github.ref == 'refs/heads/main'
+  #   steps:
+  #   - name: Deploy to Production
+  #     uses: appleboy/ssh-action@master
+  #     with:
+  #       host: ${{ secrets.HOST }}
+  #       username: ${{ secrets.USERNAME }}
+  #       key: ${{ secrets.SSH_KEY }}
+  #       script: |
+  #         cd /path/to/app
+  #         git pull origin main
+  #         source venv/bin/activate
+  #         pip install -r requirements.txt
+  #         sudo systemctl restart gunicorn

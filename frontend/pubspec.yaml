@@ -55,6 +55,8 @@ dependencies:
   fl_chart: ^0.70.2
   geolocator: ^13.0.1
   url_launcher: ^6.3.0
+  printing: 5.14.2
+  pdf: ^3.10.8
 
   path: any
   file_picker: ^10.3.8

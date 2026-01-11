@@ -35,6 +35,7 @@ import 'screens/admin/collection_ledger_screen.dart';
 import 'screens/agent/agent_performance_screen.dart';
 import 'screens/agent/agent_collection_history_screen.dart';
 import 'screens/admin/database_viewer_screen.dart';
+import 'screens/public_passbook_screen.dart';
 
 late List<CameraDescription> cameras;
 
@@ -135,6 +136,13 @@ class VasoolDriveApp extends StatelessWidget {
         '/admin/db_viewer': (context) => const DatabaseViewerScreen(),
         '/worker/performance': (context) => const AgentPerformanceScreen(),
         '/agent/collections': (context) => const AgentCollectionHistoryScreen(),
+        '/public/passbook': (context) {
+           final args = ModalRoute.of(context)?.settings.arguments;
+           if (args is String) {
+             return PublicPassbookScreen(token: args);
+           }
+           return const Scaffold(body: Center(child: Text('Error: Missing Token')));
+        },
       },
       onGenerateRoute: (settings) {
         if (settings.name == '/admin/customer_detail') {

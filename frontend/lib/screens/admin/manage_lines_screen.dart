@@ -39,8 +39,8 @@ class _ManageLinesScreenState extends State<ManageLinesScreen> {
         });
       }
     } catch (e) {
-      setState(() => _isLoading = false);
       if (mounted) {
+        setState(() => _isLoading = false);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Error fetching data: $e')),
         );
@@ -149,16 +149,16 @@ class _ManageLinesScreenState extends State<ManageLinesScreen> {
                   final token = await _storage.read(key: 'jwt_token');
                   if (token != null) {
                     await _apiService.assignLineAgent(line['id'], selectedAgentId!, token);
+                    if (!dialogContext.mounted) return;
+                    Navigator.pop(dialogContext);
+                    _fetchData();
+                  }
+                } catch (e) {
                   if (!dialogContext.mounted) return;
-                  Navigator.pop(dialogContext);
-                  _fetchData();
+                  ScaffoldMessenger.of(dialogContext).showSnackBar(
+                    SnackBar(content: Text('Error assigning agent: $e')),
+                  );
                 }
-              } catch (e) {
-                if (!dialogContext.mounted) return;
-                ScaffoldMessenger.of(dialogContext).showSnackBar(
-                  SnackBar(content: Text('Error assigning agent: $e')),
-                );
-              }
               },
               child: Text(AppLocalizations.of(dialogContext).translate('save')),
             ),
@@ -184,6 +184,70 @@ class _ManageLinesScreenState extends State<ManageLinesScreen> {
     }
   }
 
+  Future<void> _showBulkReassignDialog() async {
+    int? fromAgentId;
+    int? toAgentId;
+
+    return showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setModalState) => AlertDialog(
+          title: Text("Bulk Agent Swap", style: GoogleFonts.outfit(fontWeight: FontWeight.bold)),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text("Move ALL lines and customers from one agent to another.", style: TextStyle(fontSize: 12, color: Colors.grey)),
+              const SizedBox(height: 24),
+              DropdownButtonFormField<int>(
+                initialValue: fromAgentId,
+                decoration: const InputDecoration(labelText: "From Agent", border: OutlineInputBorder()),
+                items: _agents.map<DropdownMenuItem<int>>((a) => DropdownMenuItem<int>(value: a['id'], child: Text(a['name']))).toList(),
+                onChanged: (val) => setModalState(() => fromAgentId = val),
+              ),
+              const SizedBox(height: 16),
+              const Icon(Icons.arrow_downward_rounded, color: Colors.blueAccent),
+              const SizedBox(height: 16),
+              DropdownButtonFormField<int>(
+                initialValue: toAgentId,
+                decoration: const InputDecoration(labelText: "To Agent", border: OutlineInputBorder()),
+                items: _agents.map<DropdownMenuItem<int>>((a) => DropdownMenuItem<int>(value: a['id'], child: Text(a['name']))).toList(),
+                onChanged: (val) => setModalState(() => toAgentId = val),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("Cancel")),
+            ElevatedButton(
+              onPressed: () async {
+                if (fromAgentId == null || toAgentId == null) return;
+                if (fromAgentId == toAgentId) {
+                   ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Source and Target agents must be different")));
+                   return;
+                }
+
+                final token = await _storage.read(key: 'jwt_token');
+                if (token != null) {
+                  final res = await _apiService.bulkReassignAgent(fromAgentId!, toAgentId!, token);
+                  if (!mounted || !ctx.mounted) return;
+                  Navigator.pop(ctx);
+                  _fetchData();
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text("Success: ${res['lines_affected']} lines & ${res['customers_affected']} customers reassigned."),
+                      backgroundColor: Colors.green,
+                    )
+                  );
+                }
+              },
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.blueAccent, foregroundColor: Colors.white),
+              child: const Text("Perform Swap"),
+            )
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -193,6 +257,11 @@ class _ManageLinesScreenState extends State<ManageLinesScreen> {
           style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
         ),
         actions: [
+          TextButton.icon(
+            onPressed: _showBulkReassignDialog,
+            icon: const Icon(Icons.swap_horiz_rounded, color: Colors.blueAccent),
+            label: Text("Bulk Swap", style: GoogleFonts.poppins(color: Colors.blueAccent, fontWeight: FontWeight.bold, fontSize: 13)),
+          ),
           IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: _fetchData,

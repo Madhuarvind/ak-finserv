@@ -10,6 +10,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'admin_customer_list_screen.dart'; // Import for search navigation
 import 'package:intl/intl.dart';
 import 'cash_settlement_screen.dart';
+import '../common/qr_scan_screen.dart';
 
 class AdminDashboard extends StatefulWidget {
   final int initialTab;
@@ -193,16 +194,16 @@ class _AdminDashboardState extends State<AdminDashboard> {
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: Colors.black.withOpacity(0.05)),
+            border: Border.all(color: Colors.black.withValues(alpha: 0.05)),
           ),
           padding: const EdgeInsets.symmetric(horizontal: 16),
           child: Row(
             children: [
-              Icon(Icons.search_rounded, color: AppTheme.secondaryTextColor.withOpacity(0.5), size: 18),
+              Icon(Icons.search_rounded, color: AppTheme.secondaryTextColor.withValues(alpha: 0.5), size: 18),
               const SizedBox(width: 8),
               Text(
                 'Search customers...',
-                style: TextStyle(color: AppTheme.secondaryTextColor.withOpacity(0.5), fontSize: 13),
+                style: TextStyle(color: AppTheme.secondaryTextColor.withValues(alpha: 0.5), fontSize: 13),
               ),
             ],
           ),
@@ -243,7 +244,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
                         ),
                         borderRadius: BorderRadius.circular(32),
                         boxShadow: [
-                          BoxShadow(color: AppTheme.primaryColor.withOpacity(0.3), blurRadius: 24, offset: const Offset(0, 8)),
+                          BoxShadow(color: AppTheme.primaryColor.withValues(alpha: 0.3), blurRadius: 24, offset: const Offset(0, 8)),
                         ],
                       ),
                       child: Padding(
@@ -296,7 +297,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
                         context.translate('quick_actions'),
                         style: GoogleFonts.outfit(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textColor),
                       ),
-                      Icon(Icons.more_horiz_rounded, color: AppTheme.secondaryTextColor.withOpacity(0.5)),
+                      Icon(Icons.more_horiz_rounded, color: AppTheme.secondaryTextColor.withValues(alpha: 0.5)),
                     ],
                   ),
                 ),
@@ -308,11 +309,46 @@ class _AdminDashboardState extends State<AdminDashboard> {
                     scrollDirection: Axis.horizontal,
                     padding: const EdgeInsets.symmetric(horizontal: 24),
                     children: [
+                      _buildModernActionTile(context, context.translate('qr_scan'), Icons.qr_code_scanner_rounded, '', isCustom: true, onTap: () async {
+                         final result = await Navigator.push(
+                           context,
+                           MaterialPageRoute(builder: (context) => const QRScanScreen()),
+                         );
+                         if (result != null) {
+                            if (!context.mounted) return;
+                            
+                            final resStr = result.toString().trim();
+                            // Detect Digital Passbook (Unified ID or UUID)
+                            final uuidRegex = RegExp(r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$', caseSensitive: false);
+                            
+                            if (uuidRegex.hasMatch(resStr) || resStr.startsWith('CUST-')) {
+                               Navigator.pushNamed(context, '/public/passbook', arguments: resStr);
+                               return;
+                            }
+                            
+                            // Show processing for regular customer QR
+                            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Identifying Customer...")));
+                            
+                            final customerData = await _apiService.getCustomerByQr(resStr);
+                            
+                            if (!context.mounted) return;
+                            
+                            if (customerData['msg'] == 'not_found' || customerData['id'] == null) {
+                               ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Customer not found!"), backgroundColor: Colors.red));
+                            } else {
+                               // Navigate to Customer Details
+                               Navigator.pushNamed(context, '/admin/customer_detail', arguments: customerData['id']);
+                            }
+                         }
+                      }),
+                      const SizedBox(width: 16),
                       _buildModernActionTile(context, context.translate('user_management'), Icons.manage_accounts_outlined, '/admin/user_management'),
                       const SizedBox(width: 16),
                       _buildModernActionTile(context, "Reports", Icons.bar_chart_rounded, '/admin/reports'),
                       const SizedBox(width: 16),
-                       _buildModernActionTile(context, "AI Risk", Icons.psychology_outlined, '/admin/risk_prediction'),
+                      _buildModernActionTile(context, "Manage Lines", Icons.route_rounded, '/admin/lines'),
+                      const SizedBox(width: 16),
+                      _buildModernActionTile(context, "AI Risk", Icons.psychology_outlined, '/admin/risk_prediction'),
                        const SizedBox(width: 16),
                        _buildModernActionTile(context, "Worker AI", Icons.analytics_outlined, '/admin/analytics'),
                        const SizedBox(width: 16),
@@ -370,7 +406,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(24),
-                      border: Border.all(color: Colors.black.withOpacity(0.04)),
+                      border: Border.all(color: Colors.black.withValues(alpha: 0.04)),
                     ),
                     child: ListTile(
                       contentPadding: EdgeInsets.zero,
@@ -378,7 +414,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
                         width: 48,
                         height: 48,
                         decoration: BoxDecoration(
-                          color: color.withOpacity(0.1),
+                          color: color.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(16),
                         ),
                         child: Icon(icon, color: color),
@@ -424,9 +460,9 @@ class _AdminDashboardState extends State<AdminDashboard> {
   }
 
   Widget _buildDailyPulseSection() {
-    final progress = (_dailyOpsSummary['progress_percentage'] ?? 0.0) / 100.0;
-    final collected = _dailyOpsSummary['collected_today'] ?? 0.0;
-    final total = _dailyOpsSummary['target_today'] ?? 0.0;
+    final progress = ((_dailyOpsSummary['progress_percentage'] ?? 0.0) as num).toDouble() / 100.0;
+    final collected = (_dailyOpsSummary['collected_today'] ?? 0.0) as num;
+    final total = (_dailyOpsSummary['target_today'] ?? 0.0) as num;
     final agents = _dailyOpsSummary['active_agents'] ?? 0;
     final leaders = _dailyOpsSummary['leaders'] as List<dynamic>? ?? [];
 
@@ -436,7 +472,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(32),
-        border: Border.all(color: Colors.black.withOpacity(0.04)),
+        border: Border.all(color: Colors.black.withValues(alpha: 0.04)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -477,7 +513,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
               child: ListView.separated(
                 scrollDirection: Axis.horizontal,
                 itemCount: leaders.length,
-                separatorBuilder: (_, __) => const SizedBox(width: 8),
+                separatorBuilder: (context, index) => const SizedBox(width: 8),
                 itemBuilder: (context, index) {
                   final leader = leaders[index];
                   return Container(
@@ -500,8 +536,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
   }
 
   Widget _buildAIInsightsSection() {
-    final summaries = List<String>.from(_aiInsights!['ai_summaries'] ?? []);
-    final problemLoans = List<dynamic>.from(_aiInsights!['problem_loans'] ?? []);
+    final summaries = List<String>.from(_aiInsights?['ai_summaries'] ?? []);
+    final problemLoans = List<dynamic>.from(_aiInsights?['problem_loans'] ?? []);
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 24),
@@ -580,9 +616,9 @@ class _AdminDashboardState extends State<AdminDashboard> {
     );
   }
 
-  Widget _buildModernActionTile(BuildContext context, String title, IconData icon, String route) {
+  Widget _buildModernActionTile(BuildContext context, String title, IconData icon, String route, {bool isCustom = false, VoidCallback? onTap}) {
     return InkWell(
-      onTap: () => Navigator.pushNamed(context, route).then((_) => _fetchDashboardData()),
+      onTap: isCustom ? onTap : () => Navigator.pushNamed(context, route).then((_) => _fetchDashboardData()),
       child: Container(
         width: 100,
         padding: const EdgeInsets.all(16),
@@ -705,9 +741,11 @@ class _AdminDashboardState extends State<AdminDashboard> {
                             final token = await _apiService.getToken();
                             if (token != null) {
                               final response = await _apiService.askAiAnalyst(query, token);
-                              setModalState(() {
-                                messages.add({'text': response['text'], 'isAi': true});
-                              });
+                              if (context.mounted) {
+                                setModalState(() {
+                                  messages.add({'text': response['text'], 'isAi': true});
+                                });
+                              }
                             }
                           },
                         ),
@@ -726,9 +764,11 @@ class _AdminDashboardState extends State<AdminDashboard> {
                           final token = await _apiService.getToken();
                           if (token != null) {
                             final response = await _apiService.askAiAnalyst(query, token);
-                            setModalState(() {
-                              messages.add({'text': response['text'], 'isAi': true});
-                            });
+                            if (context.mounted) {
+                              setModalState(() {
+                                messages.add({'text': response['text'], 'isAi': true});
+                              });
+                            }
                           }
                         },
                         icon: const Icon(Icons.send_rounded),

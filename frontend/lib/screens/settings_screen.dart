@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../services/language_service.dart';
 import '../utils/localizations.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -12,9 +13,23 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
+  final _storage = const FlutterSecureStorage();
+  String? _role;
+  bool _isLoading = true;
   @override
   void initState() {
     super.initState();
+    _loadUserRole();
+  }
+
+  Future<void> _loadUserRole() async {
+    final role = await _storage.read(key: 'user_role');
+    if (mounted) {
+      setState(() {
+        _role = role;
+        _isLoading = false;
+      });
+    }
   }
 
   @override
@@ -39,7 +54,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
             ),
           ),
-          body: SingleChildScrollView(
+          body: _isLoading 
+            ? const Center(child: CircularProgressIndicator())
+            : SingleChildScrollView(
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -92,6 +109,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   const Color(0xFF3B82F6),
                   () => Navigator.pushNamed(context, '/security')
                 ),
+                
+                if (_role == 'admin') ...[
+                  const SizedBox(height: 16),
+                  _buildActionCard(
+                    context,
+                    "Administrative Configuration",
+                    "Manage global interest rates, UPI, and permissions",
+                    Icons.settings_suggest_rounded,
+                    const Color(0xFFF0FDF4),
+                    const Color(0xFF16A34A),
+                    () => Navigator.pushNamed(context, '/admin/master_settings')
+                  ),
+                ],
               ],
             ),
           ),

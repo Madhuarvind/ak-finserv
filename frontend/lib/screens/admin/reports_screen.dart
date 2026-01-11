@@ -6,6 +6,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:intl/intl.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../line_report_screen.dart';
 
 class ReportsScreen extends StatefulWidget {
   const ReportsScreen({super.key});
@@ -40,16 +41,21 @@ class _ReportsScreenState extends State<ReportsScreen> with SingleTickerProvider
   List<dynamic> _remindersList = [];
   bool _isLoadingReminders = false;
 
+  // Line-Wise State
+  List<dynamic> _linesList = [];
+  bool _isLoadingLines = false;
+
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 5, vsync: this);
+    _tabController = TabController(length: 6, vsync: this);
     _fetchDailyReport();
     _tabController.addListener(() {
       if (_tabController.index == 1 && _outstandingList.isEmpty) _fetchOutstanding();
       if (_tabController.index == 2 && _overdueList.isEmpty) _fetchOverdue();
       if (_tabController.index == 3 && _agentList.isEmpty) _fetchAgents();
       if (_tabController.index == 4 && _remindersList.isEmpty) _fetchReminders();
+      if (_tabController.index == 5 && _linesList.isEmpty) _fetchLines();
     });
   }
 
@@ -176,6 +182,7 @@ class _ReportsScreenState extends State<ReportsScreen> with SingleTickerProvider
             Tab(text: "Risk"),
             Tab(text: "Agents"),
             Tab(text: "AI Reminders"),
+            Tab(text: "Line-Wise"),
           ],
         ),
       ),
@@ -187,6 +194,7 @@ class _ReportsScreenState extends State<ReportsScreen> with SingleTickerProvider
           _buildOverdueTab(),
           _buildAgentsTab(),
           _buildRemindersTab(),
+          _buildLineWiseTab(),
         ],
       ),
     );
@@ -417,6 +425,41 @@ class _ReportsScreenState extends State<ReportsScreen> with SingleTickerProvider
     );
   }
 
+  Widget _buildLineWiseTab() {
+    return _isLoadingLines
+        ? const Center(child: CircularProgressIndicator())
+        : ListView.builder(
+            itemCount: _linesList.length,
+            itemBuilder: (ctx, i) {
+              final line = _linesList[i];
+              return Card(
+                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                child: ListTile(
+                  leading: CircleAvatar(
+                    backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.1),
+                    child: const Icon(Icons.route, color: AppTheme.primaryColor),
+                  ),
+                  title: Text(line['name'], style: const TextStyle(fontWeight: FontWeight.bold)),
+                  subtitle: Text(line['area'] ?? ''),
+                  trailing: const Icon(Icons.chevron_right, color: Colors.grey),
+                  onTap: () {
+                    // Navigate to existing Detail Report Screen
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => LineReportScreen(
+                          lineId: line['id'],
+                          period: 'daily',
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              );
+            },
+          );
+  }
+
   Widget _buildSummaryCard(String title, String value, Color color) {
     return Expanded(
       child: Container(
@@ -431,5 +474,19 @@ class _ReportsScreenState extends State<ReportsScreen> with SingleTickerProvider
         ),
       ),
     );
+  }
+
+  Future<void> _fetchLines() async {
+    if (!mounted) return;
+    setState(() => _isLoadingLines = true);
+    final token = await _storage.read(key: 'jwt_token');
+    if (token != null) {
+      try {
+        final list = await _apiService.getAllLines(token);
+        if (mounted) setState(() { _linesList = list; _isLoadingLines = false; });
+      } catch (e) {
+        if (mounted) setState(() => _isLoadingLines = false);
+      }
+    }
   }
 }
