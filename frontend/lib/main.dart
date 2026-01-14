@@ -69,7 +69,7 @@ class VasoolDriveApp extends StatelessWidget {
     return Consumer<LanguageProvider>(
       builder: (context, languageProvider, child) {
         return MaterialApp(
-          title: 'Vasool Drive',
+          title: 'AK Finserv',
           debugShowCheckedModeBanner: false,
           theme: AppTheme.lightTheme,
           themeMode: ThemeMode.light,

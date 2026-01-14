@@ -108,3 +108,6 @@ migrate_working_dir/
 
 # Security reports
 bandit_*.txt
+
+# Local Netlify folder
+.netlify

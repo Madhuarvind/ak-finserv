@@ -6,7 +6,7 @@
     <uses-feature android:name="android.hardware.camera" />
 
     <application
-        android:label="vasool_drive"
+        android:label="AK Finserv"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
         android:usesCleartextTraffic="true">

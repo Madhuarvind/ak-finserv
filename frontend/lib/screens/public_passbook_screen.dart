@@ -119,7 +119,7 @@ class _PublicPassbookScreenState extends State<PublicPassbookScreen> {
           const SizedBox(height: 48),
           Center(
             child: Text(
-              "Powered by Arun Finance Digital Systems",
+              "Powered by AK Finserv Digital Systems",
               style: TextStyle(color: Colors.grey[400], fontSize: 11),
             ),
           ),

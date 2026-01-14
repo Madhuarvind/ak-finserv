@@ -1,6 +1,7 @@
 services:
   - type: web
     name: vasool-drive-backend
+    rootDir: backend
     env: python
     region: singapore
     plan: free

@@ -435,7 +435,7 @@ class _CollectionEntryScreenState extends State<CollectionEntryScreen> {
     final upiId = _systemSettings['upi_id'] ?? 'arun.finance@okaxis';
     final amount = _amountController.text;
     final amountStr = amount.isEmpty ? '0' : amount; // Ensure amount is not empty for UPI URL
-    final upiUrl = "upi://pay?pa=$upiId&pn=${Uri.encodeComponent('Arun Finance')}&am=$amountStr&cu=INR";
+    final upiUrl = "upi://pay?pa=$upiId&pn=${Uri.encodeComponent('AK Finserv')}&am=$amountStr&cu=INR";
 
     showDialog(
       context: context,

@@ -129,7 +129,7 @@ class _WorkerLoginScreenState extends State<WorkerLoginScreen> {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text(
-                          'Vasool Drive',
+                          'AK Finserv',
                           style: GoogleFonts.outfit(
                             fontSize: 18,
                             fontWeight: FontWeight.bold,

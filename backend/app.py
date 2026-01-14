@@ -69,6 +69,10 @@ def create_app():
     app.register_blueprint(ops_bp, url_prefix="/api/ops")
     app.register_blueprint(tracking_bp, url_prefix="/api/worker")
 
+    # Create tables if they don't exist
+    with app.app_context():
+        db.create_all()
+
     return app
 
 

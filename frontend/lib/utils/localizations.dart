@@ -10,7 +10,7 @@ class AppLocalizations {
 
   static final Map<String, Map<String, String>> _localizedValues = {
     'en': {
-      'app_title': 'Vasool Drive',
+      'app_title': 'AK Finserv',
       'login': 'Login',
       'mobile_number': 'Mobile Number',
       'worker_name': 'Worker Name',
