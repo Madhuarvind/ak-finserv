@@ -10,7 +10,7 @@ class ApiService {
   static const String _localIp = '172.1.25.67'; 
   
   // Using Local IP for Release testing so you can use the APK on your phone via WiFi
-  static const String _productionUrl = 'http://$_localIp:5000/api/auth'; 
+  static const String _productionUrl = 'https://vasool-drive-backend.onrender.com/api/auth'; 
 
   static String get baseUrl {
     if (kReleaseMode) {

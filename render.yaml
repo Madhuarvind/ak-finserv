@@ -5,7 +5,7 @@ services:
     env: python
     region: singapore
     plan: free
-    buildCommand: pip install -r requirements.txt
+    buildCommand: pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu && pip install -r requirements.txt
     startCommand: gunicorn "app:create_app()"
     envVars:
       - key: DATABASE_URL
