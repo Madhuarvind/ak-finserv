@@ -1,8 +1,0 @@
-﻿DEBUG: Loaded existing ML Risk Model.
-AI Model loaded successfully
-ID  | Name                 | User       | Role        
---------------------------------------------------
-1   | Arun                 | Arun       | admin       
-2   | Madhu                | -          | field_agent 
-3   | kaliselvan           | -          | field_agent 
-4   | Kannan               | -          | field_agent 

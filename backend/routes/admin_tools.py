@@ -219,3 +219,49 @@ def ai_analyst():
         response["type"] = "risk_summary"
 
     return jsonify(response), 200
+
+
+@admin_tools_bp.route("/seed-users", methods=["POST"])
+def seed_users():
+    """
+    seeds the database with default users if they don't exist.
+    """
+    import bcrypt
+    from models import User, UserRole
+    
+    def hash_pass(password):
+        return bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
+
+    try:
+        # Check if users already exist
+        existing_admin = User.query.filter_by(username="Arun").first()
+        if not existing_admin:
+            admin_arun = User(
+                name="Arun",
+                username="Arun",
+                password_hash=hash_pass("Arun@123"),
+                mobile_number="9000000001",
+                role=UserRole.ADMIN,
+                is_first_login=False
+            )
+            db.session.add(admin_arun)
+            print("Created Admin: Arun")
+
+        existing_worker = User.query.filter_by(name="Madhu").first()
+        if not existing_worker:
+            worker_madhu = User(
+                name="Madhu",
+                pin_hash=hash_pass("1111"),
+                mobile_number="9000000002",
+                role=UserRole.FIELD_AGENT,
+                is_first_login=False
+            )
+            db.session.add(worker_madhu)
+            print("Created Worker: Madhu")
+
+        db.session.commit()
+        return jsonify({"msg": "Database seeded successfully. Login with Arun/Arun@123 or Madhu/1111"}), 200
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"msg": "Seeding failed", "error": str(e)}), 500
