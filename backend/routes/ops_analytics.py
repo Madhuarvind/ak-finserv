@@ -15,7 +15,11 @@ def auto_assign_workers():
             User.query.filter_by(username=identity).first() or \
             User.query.filter_by(mobile_number=identity).first()
 
-    if not admin or admin.role != UserRole.ADMIN:
+    if not admin:
+        return jsonify({"msg": "Access Denied"}), 403
+
+    current_role = admin.role.value if hasattr(admin.role, 'value') else admin.role
+    if current_role != UserRole.ADMIN.value:
         print(f"DEBUG: Access Denied for {identity}. Admin found: {admin.name if admin else 'None'}")
         return jsonify({"msg": "Access Denied"}), 403
 

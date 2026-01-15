@@ -17,7 +17,11 @@ def get_todays_status():
     identity = get_jwt_identity()
     user = get_user_by_identity(identity)
 
-    if not user or user.role != UserRole.ADMIN:
+    if not user:
+        return jsonify({"msg": "Access Denied"}), 403
+        
+    current_role = user.role.value if hasattr(user.role, 'value') else user.role
+    if current_role != UserRole.ADMIN.value:
         return jsonify({"msg": "Access Denied"}), 403
 
     today = date.today()
@@ -78,7 +82,11 @@ def verify_settlement():
     identity = get_jwt_identity()
     admin = get_user_by_identity(identity)
 
-    if not admin or admin.role != UserRole.ADMIN:
+    if not admin:
+        return jsonify({"msg": "Access Denied"}), 403
+
+    current_role = admin.role.value if hasattr(admin.role, 'value') else admin.role
+    if current_role != UserRole.ADMIN.value:
         return jsonify({"msg": "Access Denied"}), 403
 
     data = request.get_json()
@@ -140,7 +148,11 @@ def get_settlement_history():
     identity = get_jwt_identity()
     user = get_user_by_identity(identity)
 
-    if not user or user.role != UserRole.ADMIN:
+    if not user:
+         return jsonify({"msg": "Access Denied"}), 403
+
+    current_role = user.role.value if hasattr(user.role, 'value') else user.role
+    if current_role != UserRole.ADMIN.value:
         return jsonify({"msg": "Access Denied"}), 403
 
     settlements = (

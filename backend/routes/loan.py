@@ -48,8 +48,16 @@ def create_loan():
     try:
         # Generate Temporary Loan ID logic
         year = datetime.utcnow().year
-        count = Loan.query.filter(Loan.created_at >= datetime(year, 1, 1)).count() + 1
-        loan_id_str = f"LN-{year}-{count:06d}"
+        # Fixed for PostgreSQL compatibility
+        try:
+             count = Loan.query.filter(
+                db.extract('year', Loan.created_at) == year
+            ).count()
+        except:
+             # Fallback
+             count = Loan.query.filter(Loan.created_at >= datetime(year, 1, 1)).count()
+
+        loan_id_str = f"LN-{year}-{count + 1:06d}"
 
         new_loan = Loan(
             loan_id=loan_id_str,
@@ -106,8 +114,10 @@ def approve_loan(id):
     identity = get_jwt_identity()
     user = get_user_by_identity(identity)
     
-    if user.role.value != "admin":
-        return jsonify({"msg": "Admin access required"}), 403
+    # Normalize role check
+    current_role = user.role.value if hasattr(user.role, 'value') else user.role
+    if current_role != "admin" and current_role != UserRole.ADMIN.value:
+         return jsonify({"msg": "Admin access required"}), 403
 
     loan = Loan.query.get_or_404(id)
     if loan.status != "created":
@@ -284,7 +294,9 @@ def get_all_loans():
     status_filter = request.args.get("status")
 
     query = Loan.query
-    if user.role.value != "admin":
+    # Normalize role check
+    current_role = user.role.value if hasattr(user.role, 'value') else user.role
+    if current_role != "admin" and current_role != UserRole.ADMIN.value:
         # Workers see their assigned loans
         query = query.filter_by(assigned_worker_id=user.id)
 

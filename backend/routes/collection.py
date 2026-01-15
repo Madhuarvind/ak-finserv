@@ -276,7 +276,12 @@ def create_customer():
     identity = get_jwt_identity()
     admin = get_user_by_identity(identity)
 
-    if not admin or admin.role != UserRole.ADMIN:
+    if not admin:
+        return jsonify({"msg": "Admin Access Required"}), 403
+
+    # Normalize role check
+    current_role = admin.role.value if hasattr(admin.role, 'value') else admin.role
+    if current_role != UserRole.ADMIN.value:
         return jsonify({"msg": "Admin Access Required"}), 403
 
     data = request.get_json()
@@ -354,7 +359,12 @@ def get_pending_collections():
     identity = get_jwt_identity()
     user = get_user_by_identity(identity)
 
-    if not user or user.role != UserRole.ADMIN:
+    if not user:
+        return jsonify({"msg": "Admin Access Required"}), 403
+
+    # Normalize role check
+    current_role = user.role.value if hasattr(user.role, 'value') else user.role
+    if current_role != UserRole.ADMIN.value:
         return jsonify({"msg": "Admin Access Required"}), 403
 
     # Get all pending and flagged collections with joins
@@ -395,7 +405,12 @@ def update_collection_status(collection_id):
     identity = get_jwt_identity()
     user = get_user_by_identity(identity)
 
-    if not user or user.role == UserRole.FIELD_AGENT:
+    if not user:
+        return jsonify({"msg": "Access Denied"}), 403
+
+    # Normalize role check
+    current_role = user.role.value if hasattr(user.role, 'value') else user.role
+    if current_role == UserRole.FIELD_AGENT.value:
         return jsonify({"msg": "Access Denied"}), 403
 
     data = request.get_json()
@@ -476,9 +491,14 @@ def get_financial_stats():
         | (User.name == identity)
     ).first()
 
-    if not user or user.role != UserRole.ADMIN:
+    if not user:
         return jsonify({"msg": "Admin Access Required"}), 403
 
+    # Normalize role check
+    current_role = user.role.value if hasattr(user.role, 'value') else user.role
+    if current_role != UserRole.ADMIN.value:
+         return jsonify({"msg": "Admin Access Required"}), 403
+    
     total_approved = (
         db.session.query(db.func.sum(Collection.amount))
         .filter_by(status="approved")

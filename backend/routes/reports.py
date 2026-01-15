@@ -16,8 +16,12 @@ def get_admin_user():
     # Safe lookup helper prevents PostgreSQL 500 error
     user = get_user_by_identity(identity)
     
-    if user and user.role == UserRole.ADMIN:
-        return user
+    if user:
+         # Normalize role check
+         current_role = user.role.value if hasattr(user.role, 'value') else user.role
+         if current_role == "admin" or current_role == UserRole.ADMIN.value:
+             return user
+    return None
     return None
 
 

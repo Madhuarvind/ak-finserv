@@ -48,7 +48,11 @@ def get_field_map():
         (User.username == identity)
     ).first()
     
-    if not admin or admin.role != UserRole.ADMIN:
+    if not admin:
+        return jsonify({"msg": "unauthorized"}), 403
+        
+    current_role = admin.role.value if hasattr(admin.role, 'value') else admin.role
+    if current_role != UserRole.ADMIN.value:
         return jsonify({"msg": "unauthorized"}), 403
         
     agents = User.query.filter_by(role=UserRole.FIELD_AGENT, is_active=True).all()
