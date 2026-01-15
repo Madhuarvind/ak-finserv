@@ -374,6 +374,7 @@ def refresh_token():
 @jwt_required()
 def register_worker():
     # Safe lookup
+    identity = get_jwt_identity()
     admin = get_user_by_identity(identity)
     
     logger.info(f"Register Worker Request by: {identity}")
@@ -513,12 +514,7 @@ def register_face():
 @jwt_required()
 def list_users():
     identity = get_jwt_identity()
-    admin = User.query.filter(
-        (User.mobile_number == identity)
-        | (User.username == identity)
-        | (User.id == identity)
-        | (User.name == identity)
-    ).first()
+    admin = get_user_by_identity(identity)
 
     if not admin or admin.role != UserRole.ADMIN:
         return jsonify({"msg": "Access Denied"}), 403
@@ -690,6 +686,7 @@ def get_user_detail(user_id):
 @jwt_required()
 def update_user(user_id):
     # Safe lookup
+    identity = get_jwt_identity()
     admin = get_user_by_identity(identity)
 
     if not admin or admin.role != UserRole.ADMIN:
@@ -728,6 +725,7 @@ def update_user(user_id):
 @jwt_required()
 def toggle_user_status(user_id):
     # Safe lookup
+    identity = get_jwt_identity()
     admin = get_user_by_identity(identity)
 
     if not admin or admin.role != UserRole.ADMIN:

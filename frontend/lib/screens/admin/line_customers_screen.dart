@@ -197,20 +197,33 @@ class _LineCustomersScreenState extends State<LineCustomersScreen> {
                                 subtitle: Text(cust['mobile'] ?? cust['mobile_number'] ?? 'No Mobile'),
                                 trailing: const Icon(Icons.add_circle_outline, color: Colors.blue),
                                 onTap: () async {
+                                  setDialogState(() => _isLoading = true);
                                   try {
                                     final token = await _storage.read(key: 'jwt_token');
                                     if (token != null) {
-                                      await _apiService.addCustomerToLine(widget.line['id'], cust['id'], token);
+                                      final res = await _apiService.addCustomerToLine(widget.line['id'], cust['id'], token);
                                       if (!dialogContext.mounted) return;
-                                      Navigator.pop(dialogContext);
-                                      _fetchData();
+                                      
+                                      if (res['msg'] == 'customer_added_to_line') {
+                                        ScaffoldMessenger.of(dialogContext).showSnackBar(
+                                          const SnackBar(content: Text('Customer Added Successfully')),
+                                        );
+                                        Navigator.pop(dialogContext);
+                                        _fetchData();
+                                      } else {
+                                        ScaffoldMessenger.of(dialogContext).showSnackBar(
+                                          SnackBar(content: Text('Failed: ${res['msg']}')),
+                                        );
+                                      }
                                     }
-                                    } catch (e) {
-                                      if (!dialogContext.mounted) return;
-                                      ScaffoldMessenger.of(dialogContext).showSnackBar(
-                                        SnackBar(content: Text('Error adding customer: $e')),
-                                      );
-                                    }
+                                  } catch (e) {
+                                    if (!dialogContext.mounted) return;
+                                    ScaffoldMessenger.of(dialogContext).showSnackBar(
+                                      SnackBar(content: Text('Error adding customer: $e')),
+                                    );
+                                  } finally {
+                                    setDialogState(() => _isLoading = false);
+                                  }
                                 },
                               );
                             },

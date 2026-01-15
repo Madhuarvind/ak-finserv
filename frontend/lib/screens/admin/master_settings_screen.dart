@@ -24,7 +24,7 @@ class _MasterSettingsScreenState extends State<MasterSettingsScreen> {
   final _maxLoanController = TextEditingController();
   final _upiIdController = TextEditingController();
   final _upiQrUrlController = TextEditingController();
-  final _n8nUrlController = TextEditingController();
+  final _errorDetectionUrlController = TextEditingController();
   
   // Toggles
   bool _workerCanEditCustomer = false;
@@ -39,8 +39,6 @@ class _MasterSettingsScreenState extends State<MasterSettingsScreen> {
     final token = await _storage.read(key: 'jwt_token');
     if (token != null) {
       final settings = await _apiService.getSystemSettings(token);
-      final n8nUrl = await _apiService.getN8nAgentUrl(); // Load local
-      
       if (mounted) {
         setState(() {
           _interestRateController.text = settings['default_interest_rate'] ?? '10.0';
@@ -49,7 +47,7 @@ class _MasterSettingsScreenState extends State<MasterSettingsScreen> {
           _maxLoanController.text = settings['max_loan_amount'] ?? '50000.0';
           _upiIdController.text = settings['upi_id'] ?? 'arun.finance@okaxis';
           _upiQrUrlController.text = settings['upi_qr_url'] ?? '';
-          _n8nUrlController.text = n8nUrl;
+          _errorDetectionUrlController.text = settings['error_detection_webhook_url'] ?? '';
           _workerCanEditCustomer = (settings['worker_can_edit_customer'] ?? 'false') == 'true';
           _isLoading = false;
         });
@@ -63,7 +61,6 @@ class _MasterSettingsScreenState extends State<MasterSettingsScreen> {
     setState(() => _isLoading = true);
     final token = await _storage.read(key: 'jwt_token');
     if (token != null) {
-      // 1. Save Backend Settings
       final data = {
         "default_interest_rate": _interestRateController.text,
         "penalty_amount": _penaltyController.text,
@@ -71,21 +68,29 @@ class _MasterSettingsScreenState extends State<MasterSettingsScreen> {
         "max_loan_amount": _maxLoanController.text,
         "upi_id": _upiIdController.text,
         "upi_qr_url": _upiQrUrlController.text,
+        "error_detection_webhook_url": _errorDetectionUrlController.text,
         "worker_can_edit_customer": _workerCanEditCustomer.toString(),
       };
       
       final result = await _apiService.updateSystemSettings(data, token);
-      
-      // 2. Save Local Settings (N8n)
-      await _apiService.saveN8nAgentUrl(_n8nUrlController.text);
-
       if (mounted) {
          setState(() => _isLoading = false);
          if (result['msg'] == 'Settings updated successfully') {
-           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Settings updated!")));
-           Navigator.pop(context);
+           ScaffoldMessenger.of(context).showSnackBar(
+             const SnackBar(
+               content: Text("Settings updated successfully!"),
+               backgroundColor: Colors.green,
+               behavior: SnackBarBehavior.floating,
+             )
+           );
+           // Removed Navigator.pop to allow the user to see the success state
          } else {
-           ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: ${result['msg']}")));
+           ScaffoldMessenger.of(context).showSnackBar(
+             SnackBar(
+               content: Text("Error: ${result['msg']}"),
+               backgroundColor: Colors.red,
+             )
+           );
          }
       }
     }
@@ -133,13 +138,7 @@ class _MasterSettingsScreenState extends State<MasterSettingsScreen> {
                    _buildSectionHeader("UPI Payment (Collection)"),
                    _buildCard([
                      _buildTextField("Default UPI ID", _upiIdController, icon: Icons.account_balance_wallet_rounded),
-                     _buildTextField("Custom QR Image URL (Optional)", _upiQrUrlController, icon: Icons.image_rounded),
-                   ]),
-                   
-                   const SizedBox(height: 24),
-                   _buildSectionHeader("AI Integrations"),
-                   _buildCard([
-                     _buildTextField("Error Detection Agent URL (N8n)", _n8nUrlController, icon: Icons.webhook_rounded),
+                     _buildTextField("Custom QR Image URL (Optional)", _upiQrUrlController, icon: Icons.image_rounded, isOptional: true),
                    ]),
                    
                    const SizedBox(height: 24),
@@ -151,6 +150,19 @@ class _MasterSettingsScreenState extends State<MasterSettingsScreen> {
                        value: _workerCanEditCustomer,
                        activeThumbColor: AppTheme.primaryColor,
                        onChanged: (val) => setState(() => _workerCanEditCustomer = val),
+                     )
+                   ]),
+                   
+                   const SizedBox(height: 24),
+                   _buildSectionHeader("AI Agent Configuration (N8n)"),
+                   _buildCard([
+                     _buildTextField("Error Detection Webhook URL", _errorDetectionUrlController, icon: Icons.webhook_rounded),
+                     const Padding(
+                       padding: EdgeInsets.only(top: 8.0),
+                       child: Text(
+                         "This URL is used by the system to trigger AI validation workflows.",
+                         style: TextStyle(fontSize: 12, color: Colors.grey),
+                       ),
                      )
                    ]),
                    
@@ -193,12 +205,14 @@ class _MasterSettingsScreenState extends State<MasterSettingsScreen> {
     );
   }
 
-  Widget _buildTextField(String label, TextEditingController controller, {IconData? icon}) {
+  Widget _buildTextField(String label, TextEditingController controller, {IconData? icon, bool isOptional = false}) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
       child: TextFormField(
         controller: controller,
-        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+        keyboardType: label.toLowerCase().contains("url") || label.toLowerCase().contains("id") 
+            ? TextInputType.text 
+            : const TextInputType.numberWithOptions(decimal: true),
         decoration: InputDecoration(
           labelText: label,
           prefixIcon: icon != null ? Icon(icon, color: AppTheme.primaryColor) : null,
@@ -206,7 +220,10 @@ class _MasterSettingsScreenState extends State<MasterSettingsScreen> {
           filled: true,
           fillColor: AppTheme.backgroundColor,
         ),
-        validator: (val) => val == null || val.isEmpty ? "Required" : null,
+        validator: (val) {
+          if (isOptional) return null;
+          return val == null || val.isEmpty ? "Required" : null;
+        },
       ),
     );
   }

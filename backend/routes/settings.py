@@ -14,16 +14,20 @@ DEFAULTS = {
     "worker_can_edit_customer": "false",
     "upi_id": "arun.finance@okaxis",
     "upi_qr_url": "",
+    "error_detection_webhook_url": "https://n8n.your-instance.com/webhook/error-detection",
 }
+
+from utils.auth_helpers import get_user_by_identity
 
 
 def get_admin_user():
     identity = get_jwt_identity()
-    user = User.query.filter(
-        (User.username == identity) | (User.id == identity)
-    ).first()
-    if user and user.role == UserRole.ADMIN:
-        return user
+    user = get_user_by_identity(identity)
+    if user:
+        # Normalize role check
+        current_role = user.role.value if hasattr(user.role, 'value') else str(user.role)
+        if current_role == "admin":
+            return user
     return None
 
 

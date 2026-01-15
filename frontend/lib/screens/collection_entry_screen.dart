@@ -130,61 +130,6 @@ class _CollectionEntryScreenState extends State<CollectionEntryScreen> {
     if (_selectedLoan == null || _amountController.text.isEmpty) return;
     
     setState(() => _isLoading = true);
-
-    // --- STEP 1: ASK THE AGENT (N8n) ---
-    try {
-      final token = await _storage.read(key: 'jwt_token');
-      if (token != null) {
-        final double amt = double.parse(_amountController.text);
-        final loanId = _selectedLoan!['id'] as int;
-        // Use customer id from selected customer
-        final custId = _selectedCustomer!['id'] as int;
-
-        final agentResponse = await _apiService.validateCollectionWithAgent(loanId, amt, custId, token);
-        
-        if (agentResponse['status'] == 'warning') {
-          setState(() => _isLoading = false);
-          
-          final shouldContinue = await showDialog<bool>(
-            context: context,
-            builder: (context) => AlertDialog(
-              title: Row(
-                children: [
-                  const Icon(Icons.psychology_alt_rounded, color: Colors.purple),
-                  const SizedBox(width: 10),
-                  Text("Agent Warning", style: GoogleFonts.outfit(fontWeight: FontWeight.bold)),
-                ],
-              ),
-              content: Text(
-                agentResponse['message'] ?? "Abnormal entry detected.",
-                style: const TextStyle(fontSize: 16),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context, false), 
-                  child: const Text("Edit Entry") // Go back to fix
-                ),
-                ElevatedButton(
-                  onPressed: () => Navigator.pop(context, true), 
-                  style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
-                  child: const Text("Ignore & Submit"),
-                )
-              ],
-            ),
-          );
-
-          if (shouldContinue != true) {
-             return; // Stop submission
-          }
-          // If true, proceed to submission below...
-          setState(() => _isLoading = true); 
-        }
-      }
-    } catch (e) {
-       debugPrint("Agent Check Skipped: $e");
-    }
-    // -----------------------------------
-
     await _getCurrentLocation(); 
     
     final collectionData = {

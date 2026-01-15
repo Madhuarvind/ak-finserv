@@ -141,16 +141,30 @@ class _LiveTrackingScreenState extends State<LiveTrackingScreen> {
                       Row(
                         children: [
                           Expanded(
-                            child: ElevatedButton.icon(
-                              onPressed: agent['latitude'] != null ? () => _openMap(agent['latitude'], agent['longitude'], agent['name']) : null,
-                              icon: const Icon(Icons.map_rounded),
-                              label: const Text("VIEW ON MAP"),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.indigo[900],
-                                foregroundColor: Colors.white,
-                                padding: const EdgeInsets.symmetric(vertical: 14),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                              ),
+                            child: Column(
+                              children: [
+                                ElevatedButton.icon(
+                                  onPressed: agent['latitude'] != null
+                                      ? () => _openMap(agent['latitude'], agent['longitude'], agent['name'])
+                                      : null,
+                                  icon: const Icon(Icons.map_rounded),
+                                  label: Text(agent['latitude'] != null ? "VIEW ON MAP" : "GPS NOT READY"),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.indigo[900],
+                                    foregroundColor: Colors.white,
+                                    padding: const EdgeInsets.symmetric(vertical: 14),
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                                  ),
+                                ),
+                                if (agent['latitude'] == null)
+                                  const Padding(
+                                    padding: EdgeInsets.only(top: 8),
+                                    child: Text(
+                                      "Waiting for active sync...",
+                                      style: TextStyle(fontSize: 10, color: Colors.grey, fontStyle: FontStyle.italic),
+                                    ),
+                                  ),
+                              ],
                             ),
                           ),
                         ],

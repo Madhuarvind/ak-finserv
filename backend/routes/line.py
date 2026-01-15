@@ -154,12 +154,20 @@ def add_customer_to_line(line_id):
     if not line:
         return jsonify({"msg": "Line not found"}), 404
 
-    # Allow Admin OR the assigned agent of the line to add customers
-    if user.role != UserRole.ADMIN and line.agent_id != user.id:
-        return jsonify({"msg": "Permission denied"}), 403
-
     data = request.get_json()
-    customer_id = data.get("customer_id")
+    try:
+        customer_id = int(data.get("customer_id"))
+    except (TypeError, ValueError):
+        return jsonify({"msg": "invalid_customer_id"}), 400
+
+    line = Line.query.get(line_id)
+    if not line:
+        return jsonify({"msg": "Line not found"}), 404
+
+    # Robust role check (handle string vs enum for Render/PostgreSQL)
+    role_val = user.role.value if hasattr(user.role, 'value') else str(user.role)
+    if role_val != "admin" and line.agent_id != user.id:
+        return jsonify({"msg": "Permission denied"}), 403
 
     line = Line.query.get(line_id)
     if not line:
@@ -172,6 +180,10 @@ def add_customer_to_line(line_id):
     existing = LineCustomer.query.filter_by(line_id=line_id, customer_id=customer_id).first()
     if existing:
         return jsonify({"msg": "customer_already_in_line"}), 400
+
+    # Calculate current max sequence
+    max_seq_mapping = LineCustomer.query.filter_by(line_id=line_id).order_by(LineCustomer.sequence_order.desc()).first()
+    max_seq = max_seq_mapping.sequence_order if max_seq_mapping else 0
 
     new_mapping = LineCustomer(
         line_id=line_id, customer_id=customer_id, sequence_order=max_seq + 1
@@ -424,11 +436,21 @@ def remove_customer_from_line(line_id, customer_id):
     identity = get_jwt_identity()
     user = get_user_by_identity(identity)
 
-    if not user or user.role != UserRole.ADMIN:
-        return jsonify({"msg": "Access Denied"}), 403
+    if not user:
+        return jsonify({"msg": "User not found"}), 404
 
+    line = Line.query.get(line_id)
+    if not line:
+        return jsonify({"msg": "Line not found"}), 404
+
+    # Robust role check
+    role_val = user.role.value if hasattr(user.role, 'value') else str(user.role)
+    if role_val != "admin" and line.agent_id != user.id:
+        return jsonify({"msg": "Permission denied"}), 403
+
+    target_customer_id = int(customer_id)
     mapping = LineCustomer.query.filter_by(
-        line_id=line_id, customer_id=customer_id
+        line_id=line_id, customer_id=target_customer_id
     ).first()
     if not mapping:
         return jsonify({"msg": "Mapping not found"}), 404

@@ -30,6 +30,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
   Map<String, dynamic> _dailyOpsSummary = {};
   Map<String, dynamic>? _aiInsights;
   Map<String, dynamic>? _autoAccountingData;
+  Map<String, dynamic>? _validationErrorData;
   List<dynamic> _recentActivity = [];
   bool _isLoading = true;
   String? _userName;
@@ -67,6 +68,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
         final summary = await _apiService.getDailyOpsSummary(token);
         final insights = await _apiService.getAIInsights(token);
         final autoAccounting = await _apiService.getAutoAccountingData();
+        final validationErrors = await _apiService.getValidationErrorLogs();
         final activity = await _apiService.getAuditLogs(token);
         final name = await _storage.read(key: 'user_name');
         
@@ -76,6 +78,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
             _dailyOpsSummary = summary;
             _aiInsights = insights;
             _autoAccountingData = autoAccounting;
+            _validationErrorData = validationErrors;
             _recentActivity = activity.take(5).toList();
             _userName = name ?? 'Admin';
             _isLoading = false;
@@ -284,6 +287,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
                 ),
                 const SizedBox(height: 12),
                 _buildAutoAccountingSection(),
+                const SizedBox(height: 12),
+                _buildErrorDetectionSection(),
                 const SizedBox(height: 24),
                 _buildDailyPulseSection(),
                 const SizedBox(height: 24),
@@ -790,6 +795,108 @@ class _AdminDashboardState extends State<AdminDashboard> {
             ),
           );
         },
+      ),
+    );
+  }
+
+  Widget _buildErrorDetectionSection() {
+    if (_validationErrorData == null) return const SizedBox.shrink();
+    
+    final data = _validationErrorData!;
+    
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 24),
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1E293B), // Dark blue-grey
+        borderRadius: BorderRadius.circular(32),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 20, offset: const Offset(0, 10))
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  const Icon(Icons.security_rounded, color: Colors.orangeAccent, size: 20),
+                  const SizedBox(width: 8),
+                  Text("Error-Detection Agent", style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+                ],
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(
+                  color: Colors.green.withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text("ACTIVE", style: GoogleFonts.outfit(color: Colors.greenAccent, fontSize: 10, fontWeight: FontWeight.bold)),
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+          Row(
+            children: [
+              Expanded(
+                child: _buildAccountingMiniCard(
+                  title: "Total Alerts",
+                  value: "${data['total_alerts'] ?? 0}",
+                  icon: Icons.notifications_active_rounded,
+                  color: Colors.redAccent,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _buildAccountingMiniCard(
+                  title: "Risk Coverage",
+                  value: data['risk_coverage'] ?? '0%',
+                  icon: Icons.shield_rounded,
+                  color: Colors.blueAccent,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: _buildAccountingMiniCard(
+                  title: "Double Entries",
+                  value: "${data['double_entries'] ?? 0}",
+                  icon: Icons.repeat_rounded,
+                  color: Colors.amberAccent,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _buildAccountingMiniCard(
+                  title: "Abnormal Amounts",
+                  value: "${data['abnormal_amounts'] ?? 0}",
+                  icon: Icons.error_outline_rounded,
+                  color: Colors.orangeAccent,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 24),
+          SizedBox(
+            width: double.infinity,
+            child: TextButton.icon(
+              onPressed: () => Navigator.pushNamed(context, '/admin/audit_logs'), // Or dedicated alert log
+              icon: const Icon(Icons.list_alt_rounded, size: 18, color: Colors.orangeAccent),
+              label: Text("VIEW ALERT LOGS", 
+                style: GoogleFonts.outfit(color: Colors.orangeAccent, fontWeight: FontWeight.bold, fontSize: 12, letterSpacing: 1.1)),
+              style: TextButton.styleFrom(
+                backgroundColor: Colors.white.withValues(alpha: 0.05),
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

@@ -755,6 +755,21 @@ class ApiService {
     }
   }
 
+  Future<Map<String, dynamic>> getValidationErrorLogs() async {
+    try {
+      final response = await http.get(
+        Uri.parse('$_apiBase/reports/validation-errors'),
+        headers: {'Content-Type': 'application/json'},
+      ).timeout(const Duration(seconds: 10));
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      }
+      return {'msg': 'error', 'status': response.statusCode};
+    } catch (e) {
+      return {'msg': 'connection_failed', 'details': e.toString()};
+    }
+  }
+
   Future<List<dynamic>> getOutstandingReport(String token) async {
     try {
       final response = await http.get(
@@ -799,71 +814,6 @@ class ApiService {
       return [];
     }
   }
-
-  // --- N8n AGENT: Error Detection ---
-  // --- N8n AGENT: Error Detection ---
-  Future<void> saveN8nAgentUrl(String url) async {
-    await _storage.write(key: 'n8n_agent_url', value: url);
-  }
-
-  Future<String> getN8nAgentUrl() async {
-    return await _storage.read(key: 'n8n_agent_url') ?? 'https://n8n-mxnm.onrender.com/webhook-test/validate-collection';
-  }
-
-  Future<Map<String, dynamic>> validateCollectionWithAgent(
-      int loanId, double amount, int? customerId, String token) async {
-    try {
-      // 1. Get URL from Local Storage (defaults to the test URL you provided)
-      String agentUrl = await getN8nAgentUrl();
-      // Ensure no trailing spaces
-      agentUrl = agentUrl.trim();
-
-      debugPrint("Calling Agent: $agentUrl");
-
-      final response = await http.post(
-        Uri.parse(agentUrl),
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: jsonEncode({
-           "loan_id": loanId,
-           "amount": amount,
-           "customer_id": customerId
-        }),
-      ).timeout(const Duration(seconds: 8)); 
-
-      if (response.statusCode == 200) {
-        final decoded = jsonDecode(response.body);
-        return decoded; 
-      } else {
-        debugPrint("Agent Error ${response.statusCode}: ${response.body}");
-        return {"status": "ok"}; 
-      }
-    } catch (e) {
-      debugPrint("Agent Connection Failed: $e");
-      return {"status": "ok"}; 
-    }
-  }
-
-  // Helper to fetch settings for URL
-  Future<Map<String, dynamic>> getSystemSettings(String token) async {
-    try {
-      final response = await http.get(
-        Uri.parse('$_apiBase/admin/system-settings'),
-        headers: {
-           'Content-Type': 'application/json',
-           'Authorization': 'Bearer $token'
-        }
-      );
-      if (response.statusCode == 200) {
-        return jsonDecode(response.body);
-      }
-      return {};
-    } catch (e) {
-      return {};
-    }
-  }
-}
 
   Future<Map<String, dynamic>> getPerformanceStats(String token) async {
     try {

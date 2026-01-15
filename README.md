@@ -100,6 +100,17 @@ The system has been rigorously optimized for the latest Flutter SDK:
 - ✅ **0 Analysis Issues**: Clean code compliant with strict linting rules.
 - ✅ **Standardized UI**: Consistent use of Material Design 3 patterns (`RadioListTile`, `withValues`).
 - ✅ **Fault Tolerant**: Comprehensive null guards across all API interaction layers.
+- ✅ **CI/CD Ready**: Automated Android builds and backend checks via GitHub Actions.
+
+## 🛠 Configuration
+### N8n AI Agent Integration
+To connect your AI agents (Auto-Accounting & Error Detection):
+1. Log in as **Admin**.
+2. Navigate to **Master Settings** -> **AI Agent Configuration**.
+3. Paste your N8n Webhook URL. The system will use this URL for all AI-driven operations.
+
+### PostgreSQL Migration
+The system is fully compatible with PostgreSQL (Render). Ensure your `DATABASE_URL` is set in the environment variables.
 
 ---
 

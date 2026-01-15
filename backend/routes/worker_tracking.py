@@ -2,6 +2,7 @@ from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from models import db, User, UserRole
 from datetime import datetime
+from utils.auth_helpers import get_user_by_identity
 
 tracking_bp = Blueprint("tracking", __name__)
 
@@ -12,13 +13,8 @@ def update_tracking():
     identity = get_jwt_identity()
     data = request.get_json()
     
-    # Resolve user from identity (can be name, mobile, id, or username)
-    user = User.query.filter(
-        (User.id == identity) | 
-        (User.name == identity) | 
-        (User.mobile_number == identity) | 
-        (User.username == identity)
-    ).first()
+    # Resolve user from identity safely
+    user = get_user_by_identity(identity)
     
     if not user:
         return jsonify({"msg": "user_not_found"}), 404
@@ -41,12 +37,7 @@ def update_tracking():
 def get_field_map():
     """Get all agents' last known positions (Admin only)"""
     identity = get_jwt_identity()
-    admin = User.query.filter(
-        (User.id == identity) | 
-        (User.name == identity) | 
-        (User.mobile_number == identity) | 
-        (User.username == identity)
-    ).first()
+    admin = get_user_by_identity(identity)
     
     if not admin:
         return jsonify({"msg": "unauthorized"}), 403
@@ -55,7 +46,10 @@ def get_field_map():
     if current_role != UserRole.ADMIN.value:
         return jsonify({"msg": "unauthorized"}), 403
         
-    agents = User.query.filter_by(role=UserRole.FIELD_AGENT, is_active=True).all()
+    # Query agents more robustly
+    agents = User.query.filter(
+        (User.role == UserRole.FIELD_AGENT) | (User.role == 'field_agent')
+    ).all()
     
     result = []
     for agent in agents:

@@ -35,6 +35,8 @@ class _WorkerDashboardState extends State<WorkerDashboard> {
     super.initState();
     _loadAllData();
     _startTrackingTimer();
+    // Immediate sync on load to enable "View on Map" for Admin quickly
+    _syncLocation();
   }
 
   @override
