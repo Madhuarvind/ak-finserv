@@ -62,6 +62,7 @@ class LocalDbService {
   }
 
   Future<void> _createDb(Database db) async {
+    // Schema is designed to be compatible with Backend PostgreSQL
     await db.execute('''
       CREATE TABLE auth_local (
         name TEXT PRIMARY KEY,

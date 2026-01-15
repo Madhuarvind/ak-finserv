@@ -1280,13 +1280,29 @@ class ApiService {
   // --- Customer Sync ---
   Future<Map<String, dynamic>?> syncCustomers(List<Map<String, dynamic>> customers, String token) async {
     try {
+      // sanitize for PostgreSQL (convert SQLite int 0/1 to boolean)
+      final sanitizedCustomers = customers.map((c) {
+        final Map<String, dynamic> clean = Map.from(c);
+        
+        // Remove local-only fields
+        clean.remove('local_id'); 
+        clean.remove('is_synced');
+
+        // Ensure dates are valid strings
+        if (clean['created_at'] == null) {
+          clean['created_at'] = DateTime.now().toIso8601String();
+        }
+
+        return clean;
+      }).toList();
+
       final response = await http.post(
         Uri.parse('$_apiBase/customer/sync'),
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer $token',
         },
-        body: jsonEncode({'customers': customers}),
+        body: jsonEncode({'customers': sanitizedCustomers}),
       ).timeout(const Duration(seconds: 30));
 
       debugPrint('Sync Response: ${response.statusCode}');
