@@ -66,7 +66,7 @@ class _UPIPaymentScreenState extends State<UPIPaymentScreen> {
     } else {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("No UPI app found on this device")),
+          SnackBar(content: Text(context.translate('no_upi_app_found'))),
         );
       }
     }
@@ -79,7 +79,7 @@ class _UPIPaymentScreenState extends State<UPIPaymentScreen> {
     return Scaffold(
       backgroundColor: AppTheme.backgroundColor,
       appBar: AppBar(
-        title: Text("UPI Payment", style: GoogleFonts.outfit(fontWeight: FontWeight.bold)),
+        title: Text(context.translate('upi_payment_title'), style: GoogleFonts.outfit(fontWeight: FontWeight.bold)),
         backgroundColor: Colors.white,
         elevation: 0,
         iconTheme: const IconThemeData(color: Colors.black),
@@ -144,7 +144,7 @@ class _UPIPaymentScreenState extends State<UPIPaymentScreen> {
                         ),
                         const SizedBox(height: 8),
                         Text(
-                          "Scan with any UPI App",
+                          context.translate('scan_any_upi_hint'),
                           style: TextStyle(color: Colors.grey[500], fontWeight: FontWeight.bold),
                         ),
                       ],
@@ -154,7 +154,7 @@ class _UPIPaymentScreenState extends State<UPIPaymentScreen> {
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 40),
                     child: Text(
-                      "Or click below to pay directly using apps installed on your phone:",
+                      context.translate('pay_via_apps_hint'),
                       textAlign: TextAlign.center,
                       style: TextStyle(color: Colors.grey[600], fontSize: 13),
                     ),
@@ -174,7 +174,7 @@ class _UPIPaymentScreenState extends State<UPIPaymentScreen> {
                         onPressed: _launchUPIApp,
                         icon: const Icon(Icons.account_balance_wallet_rounded),
                         label: Text(
-                          "Pay via Installed Apps",
+                          context.translate('pay_via_installed_apps'),
                           style: GoogleFonts.outfit(fontSize: 16, fontWeight: FontWeight.bold),
                         ),
                       ),

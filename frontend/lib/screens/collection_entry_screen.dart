@@ -387,7 +387,7 @@ class _CollectionEntryScreenState extends State<CollectionEntryScreen> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text("Pay to UPI ID", style: GoogleFonts.outfit(fontSize: 12, color: Colors.indigo[900], fontWeight: FontWeight.bold)),
+                    Text(context.translate('pay_to_upi_id'), style: GoogleFonts.outfit(fontSize: 12, color: Colors.indigo[900], fontWeight: FontWeight.bold)),
                     _buildCopyButton(_systemSettings['upi_id'] ?? 'arun.finance@okaxis'),
                   ],
                 ),
@@ -402,7 +402,7 @@ class _CollectionEntryScreenState extends State<CollectionEntryScreen> {
                     onPressed: () {
                       final amount = double.tryParse(_amountController.text) ?? 0.0;
                       if (amount <= 0) {
-                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Enter a valid amount first")));
+                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(context.translate('enter_valid_amount_first'))));
                         return;
                       }
                       Navigator.pushNamed(context, '/collection/upi', arguments: {
@@ -412,7 +412,7 @@ class _CollectionEntryScreenState extends State<CollectionEntryScreen> {
                       });
                     },
                     icon: const Icon(Icons.qr_code_scanner_rounded, size: 18),
-                    label: const Text("GENERATE DYNAMIC QR"),
+                    label: Text(context.translate('generate_dynamic_qr')),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.indigo[900],
                       foregroundColor: Colors.white,
@@ -432,7 +432,7 @@ class _CollectionEntryScreenState extends State<CollectionEntryScreen> {
     return InkWell(
       onTap: () {
         Clipboard.setData(ClipboardData(text: text));
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("UPI ID copied to clipboard"), behavior: SnackBarBehavior.floating));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(context.translate('upi_id_copied')), behavior: SnackBarBehavior.floating));
       },
       child: Container(
         padding: const EdgeInsets.all(4),
