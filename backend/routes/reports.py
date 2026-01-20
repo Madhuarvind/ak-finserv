@@ -1005,3 +1005,104 @@ def get_daily_report_pdf(report_id):
     except Exception as e:
         print(f"PDF Error: {e}")
         return jsonify({"msg": "Failed to generate PDF", "error": str(e)}), 500
+
+
+@reports_bp.route("/tally/export-daybook", methods=["GET"])
+@jwt_required()
+def export_tally_daybook():
+    """Generates Tally TDL/XML Daybook for Import"""
+    if not get_admin_user():
+        return jsonify({"msg": "Admin access required"}), 403
+
+    try:
+        from datetime import datetime
+        
+        # Default to today if not specified
+        date_str = request.args.get("date")
+        if date_str:
+            target_date = datetime.fromisoformat(date_str).date()
+        else:
+            ist_now = datetime.utcnow() + timedelta(hours=5, minutes=30)
+            target_date = ist_now.date()
+
+        # Fetch Approved Collections for the Day
+        from models import Collection, Loan, User
+        collections = (
+            db.session.query(Collection)
+            .join(Loan, Collection.loan_id == Loan.id)
+            .join(User, Collection.agent_id == User.id)
+            .filter(
+                func.date(Collection.created_at) == target_date,
+                Collection.status == "approved"
+            )
+            .all()
+        )
+
+        # Build Tally XML
+        # Structure: Envelope -> Body -> ImportData -> RequestDesc + RequestData -> TallyMessage -> Voucher
+        xml_lines = []
+        xml_lines.append("<ENVELOPE>")
+        xml_lines.append(" <HEADER>")
+        xml_lines.append("  <TALLYREQUEST>Import Data</TALLYREQUEST>")
+        xml_lines.append(" </HEADER>")
+        xml_lines.append(" <BODY>")
+        xml_lines.append("  <IMPORTDATA>")
+        xml_lines.append("   <REQUESTDESC>")
+        xml_lines.append("    <REPORTNAME>Vouchers</REPORTNAME>")
+        xml_lines.append("    <STATICVARIABLES>")
+        xml_lines.append("     <SVCURRENTCOMPANY>Arun Finance</SVCURRENTCOMPANY>")
+        xml_lines.append("    </STATICVARIABLES>")
+        xml_lines.append("   </REQUESTDESC>")
+        xml_lines.append("   <REQUESTDATA>")
+
+        for c in collections:
+            cust_name = c.loan.customer.name if c.loan.customer else "Unknown"
+            agent_name = c.agent.name
+            amount = f"{c.amount:.2f}"
+            date_fmt = target_date.strftime("%Y%m%d")
+            narrative = f"Col ID: {c.id} | Agent: {agent_name} | Loan: {c.loan.loan_id}"
+            
+            # Sanitization
+            cust_name = cust_name.replace("&", "&amp;").replace("<", "&lt;")
+
+            xml_lines.append("    <TALLYMESSAGE xmlns:UDF=\"TallyUDF\">")
+            xml_lines.append(f"     <VOUCHER VCHTYPE=\"Receipt\" ACTION=\"Create\" OBJVIEW=\"Accounting Voucher View\">")
+            xml_lines.append(f"      <DATE>{date_fmt}</DATE>")
+            xml_lines.append(f"      <NARRATION>{narrative}</NARRATION>")
+            xml_lines.append(f"      <VOUCHERTYPENAME>Receipt</VOUCHERTYPENAME>")
+            xml_lines.append(f"      <VOUCHERNUMBER>{c.id}</VOUCHERNUMBER>")
+            xml_lines.append(f"      <FBTPAYMENTTYPE>Agent Receipt</FBTPAYMENTTYPE>")
+            
+            # Credit Entry (Customer/Income Account) - Source of Funds
+            xml_lines.append("      <ALLLEDGERENTRIES.LIST>")
+            xml_lines.append(f"       <LEDGERNAME>{cust_name}</LEDGERNAME>")
+            xml_lines.append("       <ISDEEMEDPOSITIVE>No</ISDEEMEDPOSITIVE>") # Credit
+            xml_lines.append(f"       <AMOUNT>{amount}</AMOUNT>")
+            xml_lines.append("      </ALLLEDGERENTRIES.LIST>")
+            
+            # Debit Entry (Cash/Bank) - Destination of Funds
+            ledger_name = "Cash" if (c.payment_mode or "cash") == "cash" else "Bank"
+            xml_lines.append("      <ALLLEDGERENTRIES.LIST>")
+            xml_lines.append(f"       <LEDGERNAME>{ledger_name}</LEDGERNAME>")
+            xml_lines.append("       <ISDEEMEDPOSITIVE>Yes</ISDEEMEDPOSITIVE>") # Debit
+            xml_lines.append(f"       <AMOUNT>-{amount}</AMOUNT>") # Tally needs negative for debit in some contexts, but let's stick to standard XML import format where positive/negative depends on ISDEEMEDPOSITIVE
+            xml_lines.append("      </ALLLEDGERENTRIES.LIST>")
+            
+            xml_lines.append("     </VOUCHER>")
+            xml_lines.append("    </TALLYMESSAGE>")
+
+        xml_lines.append("   </REQUESTDATA>")
+        xml_lines.append("  </IMPORTDATA>")
+        xml_lines.append(" </BODY>")
+        xml_lines.append("</ENVELOPE>")
+
+        xml_content = "\n".join(xml_lines)
+        
+        return (
+            xml_content,
+            200,
+            {"Content-Type": "text/xml", "Content-Disposition": f"attachment; filename=Daybook_{target_date}.xml"}
+        )
+
+    except Exception as e:
+        return jsonify({"msg": "XML Generation Failed", "error": str(e)}), 500

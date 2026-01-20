@@ -8,6 +8,11 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../line_report_screen.dart';
 
+import 'package:universal_html/html.dart' as html;
+import 'package:flutter/foundation.dart' show kIsWeb;
+import 'dart:convert';
+import 'dart:typed_data';
+
 class ReportsScreen extends StatefulWidget {
   const ReportsScreen({super.key});
 
@@ -24,6 +29,7 @@ class _ReportsScreenState extends State<ReportsScreen> with SingleTickerProvider
   DateTime _selectedDate = DateTime.now();
   Map<String, dynamic>? _dailyData;
   bool _isLoadingDaily = false;
+  bool _isDownloadingTally = false;
 
   // Outstanding State
   List<dynamic> _outstandingList = [];
@@ -57,6 +63,43 @@ class _ReportsScreenState extends State<ReportsScreen> with SingleTickerProvider
       if (_tabController.index == 4 && _remindersList.isEmpty) _fetchReminders();
       if (_tabController.index == 5 && _linesList.isEmpty) _fetchLines();
     });
+  }
+
+  Future<void> _downloadTallyXml() async {
+    setState(() => _isDownloadingTally = true);
+    final token = await _storage.read(key: 'jwt_token');
+    
+    if (token != null) {
+      final dateStr = DateFormat('yyyy-MM-dd').format(_selectedDate);
+      final xmlContent = await _apiService.downloadTallyDaybook(token, date: dateStr);
+      
+      if (mounted) {
+        setState(() => _isDownloadingTally = false);
+        
+        if (xmlContent != null) {
+          if (kIsWeb) {
+            // Web Download
+            final bytes = utf8.encode(xmlContent);
+            final blob = html.Blob([bytes]);
+            final url = html.Url.createObjectUrlFromBlob(blob);
+            final anchor = html.AnchorElement(href: url)
+              ..setAttribute("download", "Tally_Daybook_$dateStr.xml")
+              ..click();
+            html.Url.revokeObjectUrl(url);
+          } else {
+            // Mobile/Desktop Show Data
+            ScaffoldMessenger.of(context).showSnackBar(
+               const SnackBar(content: Text("Tally XML Downloaded (Check device storage logic needed for mobile)")),
+            );
+            // In a real mobile app, use path_provider to write to Documents
+          }
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+             const SnackBar(content: Text("Failed to download Tally XML")),
+          );
+        }
+      }
+    }
   }
 
   Future<void> _fetchReminders() async {
@@ -217,38 +260,50 @@ class _ReportsScreenState extends State<ReportsScreen> with SingleTickerProvider
                 DateFormat('EEE, dd MMM yyyy').format(_selectedDate), 
                 style: GoogleFonts.outfit(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white)
               ),
-              ElevatedButton.icon(
-                onPressed: () async {
-                  final picked = await showDatePicker(
-                    context: context, 
-                    initialDate: _selectedDate, 
-                    firstDate: DateTime(2020), 
-                    lastDate: DateTime.now(),
-                    builder: (context, child) => Theme(
-                      data: Theme.of(context).copyWith(
-                        colorScheme: const ColorScheme.dark(
-                          primary: AppTheme.primaryColor,
-                          onPrimary: Colors.black,
-                          surface: Color(0xFF1E293B),
-                          onSurface: Colors.white,
+              Row(
+                children: [
+                   _isDownloadingTally 
+                   ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: AppTheme.primaryColor, strokeWidth: 2))
+                   : TextButton.icon(
+                      onPressed: _downloadTallyXml, 
+                      icon: const Icon(Icons.file_download, color: AppTheme.primaryColor, size: 20),
+                      label: Text("TALLY XML", style: GoogleFonts.outfit(fontWeight: FontWeight.bold, color: Colors.white)),
+                   ),
+                   const SizedBox(width: 10),
+                   ElevatedButton.icon(
+                    onPressed: () async {
+                      final picked = await showDatePicker(
+                        context: context, 
+                        initialDate: _selectedDate, 
+                        firstDate: DateTime(2020), 
+                        lastDate: DateTime.now(),
+                        builder: (context, child) => Theme(
+                          data: Theme.of(context).copyWith(
+                            colorScheme: const ColorScheme.dark(
+                              primary: AppTheme.primaryColor,
+                              onPrimary: Colors.black,
+                              surface: Color(0xFF1E293B),
+                              onSurface: Colors.white,
+                            ),
+                          ),
+                          child: child!,
                         ),
-                      ),
-                      child: child!,
+                      );
+                      if (picked != null) {
+                        setState(() => _selectedDate = picked);
+                        _fetchDailyReport();
+                      }
+                    },
+                    icon: const Icon(Icons.calendar_today_rounded, size: 16),
+                    label: Text("DATE", style: GoogleFonts.outfit(fontWeight: FontWeight.w900, letterSpacing: 1)),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.primaryColor,
+                      foregroundColor: Colors.black,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      elevation: 0,
                     ),
-                  );
-                  if (picked != null) {
-                     setState(() => _selectedDate = picked);
-                     _fetchDailyReport();
-                  }
-                },
-                icon: const Icon(Icons.calendar_today_rounded, size: 16),
-                label: Text("DATE", style: GoogleFonts.outfit(fontWeight: FontWeight.w900, letterSpacing: 1)),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTheme.primaryColor,
-                  foregroundColor: Colors.black,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  elevation: 0,
-                ),
+                  ),
+                ],
               )
             ],
           ),

@@ -1658,6 +1658,24 @@ class ApiService {
     }
   }
 
+  Future<String?> downloadTallyDaybook(String token, {String? date}) async {
+    try {
+      final queryParam = date != null ? "?date=$date" : "";
+      final response = await http.get(
+        Uri.parse('$_apiBase/reports/tally/export-daybook$queryParam'),
+        headers: {'Authorization': 'Bearer $token'},
+      ).timeout(const Duration(seconds: 30));
+
+      if (response.statusCode == 200) {
+        return response.body; 
+      }
+      return null;
+    } catch (e) {
+      debugPrint('downloadTallyDaybook Error: $e');
+      return null;
+    }
+  }
+
   Future<Map<String, dynamic>> bulkReassignAgent(int fromId, int toId, String token) async {
     try {
       final response = await http.post(
