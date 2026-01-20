@@ -132,8 +132,8 @@ def login_pin():
             db.session.add(log)
             db.session.commit()
 
-            access_token = create_access_token(identity=name)
-            refresh_token = create_refresh_token(identity=name)
+            access_token = create_access_token(identity=str(user.id))
+            refresh_token = create_refresh_token(identity=str(user.id))
 
             # Resolve role value safely
             current_role = user.role.value if hasattr(user.role, 'value') else str(user.role)
