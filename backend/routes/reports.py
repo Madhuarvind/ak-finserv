@@ -9,20 +9,7 @@ from fpdf import FPDF
 reports_bp = Blueprint("reports", __name__)
 
 
-from utils.auth_helpers import get_user_by_identity
-
-def get_admin_user():
-    identity = get_jwt_identity()
-    # Safe lookup helper prevents PostgreSQL 500 error
-    user = get_user_by_identity(identity)
-    
-    if user:
-         # Normalize role check
-         current_role = user.role.value if hasattr(user.role, 'value') else user.role
-         if current_role == "admin" or current_role == UserRole.ADMIN.value:
-             return user
-    return None
-    return None
+from utils.auth_helpers import get_user_by_identity, get_admin_user
 
 
 @reports_bp.route("/stats/kpi", methods=["GET"])
@@ -59,10 +46,11 @@ def get_kpi_stats():
         )
 
         # Overdue Amount: Sum of unpaid EMIs where due_date < today
-        today = datetime.utcnow()
+        # Use IST today for overdue checks
+        ist_now = datetime.utcnow() + timedelta(hours=5, minutes=30)
         overdue_amount = (
             db.session.query(func.sum(EMISchedule.balance))
-            .filter(EMISchedule.status != "paid", EMISchedule.due_date < today)
+            .filter(EMISchedule.status != "paid", EMISchedule.due_date < ist_now)
             .scalar()
             or 0
         )
@@ -97,15 +85,20 @@ def get_daily_report():
     end_date_str = request.args.get("end_date")
 
     try:
+        ist_now = datetime.utcnow() + timedelta(hours=5, minutes=30)
+        ist_today_start = ist_now.replace(hour=0, minute=0, second=0, microsecond=0)
+        default_utc_start = ist_today_start - timedelta(hours=5, minutes=30)
+        default_utc_end = default_utc_start + timedelta(days=1)
+
         start_date = (
             datetime.fromisoformat(start_date_str)
             if start_date_str
-            else datetime.utcnow().replace(hour=0, minute=0, second=0)
+            else default_utc_start
         )
         end_date = (
             datetime.fromisoformat(end_date_str)
             if end_date_str
-            else datetime.utcnow().replace(hour=23, minute=59, second=59)
+            else default_utc_end
         )
 
         collections = (
@@ -118,11 +111,13 @@ def get_daily_report():
 
         report = []
         for c in collections:
+            # Handle potential null payment_mode (legacy data)
+            p_mode = c.payment_mode or "cash"
             report.append(
                 {
                     "id": c.id,
                     "amount": c.amount,
-                    "payment_mode": c.payment_mode,
+                    "payment_mode": p_mode,
                     "status": c.status,
                     "time": c.created_at.isoformat() + "Z",
                     "agent_name": c.agent.name if c.agent else "Unknown",
@@ -141,7 +136,7 @@ def get_daily_report():
             "cash": sum(
                 c.amount
                 for c in collections
-                if c.status == "approved" and c.payment_mode == "cash"
+                if c.status == "approved" and (c.payment_mode or "cash") == "cash"
             ),
             "upi": sum(
                 c.amount
@@ -212,9 +207,18 @@ def get_performance_report():
                 .scalar()
                 or 0
             )
-            assigned_cust = Customer.query.filter_by(
-                assigned_worker_id=agent.id
-            ).count()
+            
+            # Count customers assigned DIRECTLY or via LINES
+            # This fixes the "0 Assigned Customers" issue
+            assigned_cust_query = Customer.query.filter(
+                db.or_(
+                    Customer.assigned_worker_id == agent.id,
+                    Customer.line_id.in_(
+                        db.session.query(Line.id).filter_by(agent_id=agent.id)
+                    )
+                )
+            )
+            assigned_cust = assigned_cust_query.count()
 
             report.append(
                 {
@@ -239,12 +243,12 @@ def get_overdue_report():
         return jsonify({"msg": "Admin access required"}), 403
 
     try:
-        today = datetime.utcnow()
+        ist_now = datetime.utcnow() + timedelta(hours=5, minutes=30)
         overdue_emis = (
             db.session.query(EMISchedule, Loan, Customer)
             .join(Loan, EMISchedule.loan_id == Loan.id)
             .join(Customer, Loan.customer_id == Customer.id)
-            .filter(EMISchedule.status != "paid", EMISchedule.due_date < today)
+            .filter(EMISchedule.status != "paid", EMISchedule.due_date < ist_now)
             .all()
         )
 
@@ -280,7 +284,8 @@ def get_tomorrow_reminders():
         return jsonify({"msg": "Admin access required"}), 403
 
     try:
-        tomorrow = (datetime.utcnow() + timedelta(days=1)).date()
+        ist_now = datetime.utcnow() + timedelta(hours=5, minutes=30)
+        tomorrow = (ist_now + timedelta(days=1)).date()
 
         targets = (
             db.session.query(EMISchedule, Loan, Customer)
@@ -341,12 +346,10 @@ def get_daily_ops_summary():
     try:
         from datetime import datetime
 
-        today_start = datetime.utcnow().replace(
-            hour=0, minute=0, second=0, microsecond=0
-        )
-        today_end = datetime.utcnow().replace(
-            hour=23, minute=59, second=59, microsecond=999999
-        )
+        ist_now = datetime.utcnow() + timedelta(hours=5, minutes=30)
+        ist_today_start = ist_now.replace(hour=0, minute=0, second=0, microsecond=0)
+        today_start = ist_today_start - timedelta(hours=5, minutes=30)
+        today_end = today_start + timedelta(days=1)
 
         # 1. Target: Sum of EMIs due today
         target_today = (
@@ -428,24 +431,29 @@ def get_line_report(line_id):
     date_str = request.args.get("date")
 
     try:
+        # Adjustment for IST (UTC+5:30)
+        ist_now = datetime.utcnow() + timedelta(hours=5, minutes=30)
+        
         if date_str:
             target_date = datetime.fromisoformat(date_str).replace(
                 hour=0, minute=0, second=0, microsecond=0
             )
         else:
-            target_date = datetime.utcnow().replace(
+            # Use current IST date as basis
+            target_date = ist_now.replace(
                 hour=0, minute=0, second=0, microsecond=0
             )
 
         if period == "weekly":
-            # Start of current week (Monday)
-            start_date = target_date - timedelta(days=target_date.weekday())
-            end_date = start_date + timedelta(days=6, hours=23, minutes=59, seconds=59)
+            # Start of current week (Monday) in IST
+            start_of_week_ist = target_date - timedelta(days=target_date.weekday())
+            # Convert IST range back to UTC for DB query
+            start_date = start_of_week_ist - timedelta(hours=5, minutes=30)
+            end_date = start_date + timedelta(days=7)
         else:
-            start_date = target_date
-            end_date = target_date.replace(
-                hour=23, minute=59, second=59, microsecond=999999
-            )
+            # Daily IST range converted to UTC
+            start_date = target_date - timedelta(hours=5, minutes=30)
+            end_date = start_date + timedelta(days=1)
 
         line = Line.query.get_or_404(line_id)
         line_customers = (
@@ -635,7 +643,8 @@ def get_work_targets():
         return jsonify({"msg": "User not found"}), 404
 
     try:
-        today = datetime.utcnow().date()
+        ist_now = datetime.utcnow() + timedelta(hours=5, minutes=30)
+        today = ist_now.date()
         
         # If admin, fetch for all lines. If agent, only for their lines.
         if user.role == UserRole.ADMIN:
@@ -661,8 +670,9 @@ def get_work_targets():
                     if pending_emis:
                         # Check if any collection (approved or pending) exists for this loan today
                         # to avoid showing it in work targets if already collected.
-                        today_start = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
-                        today_end = datetime.utcnow().replace(hour=23, minute=59, second=59, microsecond=999999)
+                        ist_today_start = ist_now.replace(hour=0, minute=0, second=0, microsecond=0)
+                        today_start = ist_today_start - timedelta(hours=5, minutes=30)
+                        today_end = today_start + timedelta(days=1)
                         
                         already_collected = Collection.query.filter(
                             Collection.loan_id == loan.id,
@@ -696,7 +706,8 @@ def get_validation_errors():
     """Aggregate data for AI Error-Detection Agent"""
     try:
         from models import Collection, Loan, Customer
-        today = datetime.utcnow().date()
+        ist_now = datetime.utcnow() + timedelta(hours=5, minutes=30)
+        today = ist_now.date()
         
         # Aggregate flags from N8n (Simulated for UI, in reality N8n would POST here or we'd fetch from logs)
         # For the dashboard, we show a summary of today's 'alerts' detected by the agent.
@@ -728,8 +739,10 @@ def get_auto_accounting():
     # Note: Authorization check skipped for flexibility, or you can add it back
     
     try:
-        today_start = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
-        today_end = datetime.utcnow().replace(hour=23, minute=59, second=59, microsecond=999999)
+        ist_now = datetime.utcnow() + timedelta(hours=5, minutes=30)
+        ist_today_start = ist_now.replace(hour=0, minute=0, second=0, microsecond=0)
+        today_start = ist_today_start - timedelta(hours=5, minutes=30)
+        today_end = today_start + timedelta(days=1)
 
         collections = db.session.query(Collection).filter(
             Collection.created_at >= today_start,

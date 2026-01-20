@@ -23,6 +23,7 @@ class _WorkerLoginScreenState extends State<WorkerLoginScreen> {
   final _storage = FlutterSecureStorage();
   bool _isLoading = false;
   bool _biometricsEnabled = false;
+  bool _isPinVisible = false;
 
   @override
   void initState() {
@@ -234,15 +235,27 @@ class _WorkerLoginScreenState extends State<WorkerLoginScreen> {
                           const SizedBox(height: 16),
                           TextField(
                             controller: _pinController,
-                            obscureText: true,
+                            obscureText: !_isPinVisible,
                             textInputAction: TextInputAction.done,
                             onSubmitted: (_) => _handleLogin(),
                             keyboardType: TextInputType.number,
-                            style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, letterSpacing: 12, color: Colors.white),
+                            style: TextStyle(
+                              fontSize: 24, 
+                              fontWeight: FontWeight.bold, 
+                              letterSpacing: _isPinVisible ? 2 : 12, 
+                              color: Colors.white
+                            ),
                             decoration: InputDecoration(
                               labelText: context.translate('pin'),
                               labelStyle: const TextStyle(color: Colors.white38),
                               prefixIcon: const Icon(Icons.lock_outline_rounded, color: Colors.white38),
+                              suffixIcon: IconButton(
+                                icon: Icon(
+                                  _isPinVisible ? Icons.visibility_off_rounded : Icons.visibility_rounded,
+                                  color: Colors.white38,
+                                ),
+                                onPressed: () => setState(() => _isPinVisible = !_isPinVisible),
+                              ),
                               filled: true,
                               fillColor: Colors.white.withValues(alpha: 0.05),
                               border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),

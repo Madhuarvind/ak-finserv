@@ -794,9 +794,7 @@ def delete_user(user_id):
 @jwt_required()
 def get_user_biometrics(user_id):
     identity = get_jwt_identity()
-    admin = User.query.filter(
-        (User.mobile_number == identity) | (User.username == identity)
-    ).first()
+    admin = get_user_by_identity(identity)
 
     current_role = admin.role.value if hasattr(admin.role, 'value') else str(admin.role)
     if not admin or (current_role != "admin" and current_role != UserRole.ADMIN.value):
@@ -830,9 +828,7 @@ def get_user_biometrics(user_id):
 @jwt_required()
 def get_user_login_stats(user_id):
     identity = get_jwt_identity()
-    admin = User.query.filter(
-        (User.mobile_number == identity) | (User.username == identity)
-    ).first()
+    admin = get_user_by_identity(identity)
 
     if not admin or admin.role != UserRole.ADMIN:
         return jsonify({"msg": "Access Denied"}), 403
@@ -884,12 +880,7 @@ def get_user_login_stats(user_id):
 @jwt_required()
 def get_my_profile():
     current_user_id = get_jwt_identity()
-    # Handle string identity (username/mobile/name) instead of integer ID
-    user = User.query.filter(
-        (User.mobile_number == current_user_id)
-        | (User.username == current_user_id)
-        | (User.name.ilike(current_user_id))
-    ).first()
+    user = get_user_by_identity(current_user_id)
 
     if not user:
         return jsonify({"msg": "User not found"}), 404
@@ -924,12 +915,7 @@ def get_my_profile():
 @jwt_required()
 def get_my_team():
     current_user_id = get_jwt_identity()
-    # Handle both username/mobile identity
-    user = User.query.filter(
-        (User.id == current_user_id)
-        | (User.mobile_number == current_user_id)
-        | (User.username == current_user_id)
-    ).first()
+    user = get_user_by_identity(current_user_id)
 
     if not user or user.role != UserRole.ADMIN:
         return jsonify({"msg": "Access Denied"}), 403
@@ -958,9 +944,7 @@ def get_my_team():
 @jwt_required()
 def get_performance_stats():
     identity = get_jwt_identity()
-    user = User.query.filter(
-        (User.mobile_number == identity) | (User.username == identity)
-    ).first()
+    user = get_user_by_identity(identity)
 
     if not user or user.role != UserRole.ADMIN:
         return jsonify({"msg": "Access Denied"}), 403

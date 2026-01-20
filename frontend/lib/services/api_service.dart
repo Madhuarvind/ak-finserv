@@ -13,20 +13,27 @@ class ApiService {
   static const String _productionUrl = 'https://vasool-drive-backend.onrender.com/api/auth'; 
 
   static String get baseUrl {
+    if (kIsWeb) {
+      // In Web, detect if we're on a hosted domain (like Netlify) vs localhost
+      final host = Uri.base.host;
+      final isLocalHost = host == 'localhost' || host == '127.0.0.1';
+      
+      if (kReleaseMode || !isLocalHost) {
+        return _productionUrl; 
+      }
+      return 'http://localhost:5000/api/auth';
+    }
+
     if (kReleaseMode) {
-      // In release mode (APK), use the production URL
-      // If you are just testing the APK locally, you can change this to use _localIp
       return _productionUrl; 
     }
     
-    if (kIsWeb || Platform.isWindows) {
-      return 'http://localhost:5000/api/auth';
-    }
-    
-    if (Platform.isAndroid) {
-      // 10.0.2.2 is the special IP for Android Emulator to access host localhost
-      // If running on physical device, we need the LAN IP
-      return 'http://$_localIp:5000/api/auth';
+    // Desktop / Emulators
+    try {
+      if (Platform.isWindows) return 'http://localhost:5000/api/auth';
+      if (Platform.isAndroid) return 'http://$_localIp:5000/api/auth';
+    } catch (_) {
+      // Platform check might fail on some specialized environments
     }
     
     return 'http://$_localIp:5000/api/auth';
@@ -159,6 +166,8 @@ class ApiService {
 
   Future<Map<String, dynamic>> registerFace(int userId, dynamic imageBytes, String? deviceId, String token) async {
     try {
+      debugPrint("API_DEBUG: Starting registerFace for user $userId (Target: $_apiBase/auth/register-face)");
+      
       var request = http.MultipartRequest('POST', Uri.parse('$_apiBase/auth/register-face'));
       request.headers['Authorization'] = 'Bearer $token';
       request.fields['user_id'] = userId.toString();
@@ -170,17 +179,21 @@ class ApiService {
         filename: 'face.jpg',
       ));
 
-      var streamedResponse = await request.send();
-      var response = await http.Response.fromStream(streamedResponse);
+      // Use a combined timeout to prevent hanging on Web
+      var streamedResponse = await request.send().timeout(const Duration(seconds: 40));
+      var response = await http.Response.fromStream(streamedResponse).timeout(const Duration(seconds: 20));
+      
+      debugPrint("API_DEBUG: registerFace received response: ${response.statusCode}");
       return jsonDecode(response.body);
     } catch (e) {
-      debugPrint("API_DEBUG: registerFace connection error: $e");
+      debugPrint("API_DEBUG: registerFace error: $e");
       return {'msg': 'connection_failed', 'error': e.toString()};
     }
   }
 
   Future<Map<String, dynamic>> verifyFaceLogin(String name, dynamic imageBytes, String? deviceId) async {
     try {
+      debugPrint("API_DEBUG: Starting verifyFaceLogin for $name");
       var request = http.MultipartRequest('POST', Uri.parse('$_apiBase/auth/verify-face-login'));
       request.fields['name'] = name;
       if (deviceId != null) request.fields['device_id'] = deviceId;
@@ -191,8 +204,10 @@ class ApiService {
         filename: 'verify.jpg',
       ));
 
-      var streamedResponse = await request.send();
-      var response = await http.Response.fromStream(streamedResponse);
+      var streamedResponse = await request.send().timeout(const Duration(seconds: 40));
+      var response = await http.Response.fromStream(streamedResponse).timeout(const Duration(seconds: 20));
+      
+      debugPrint("API_DEBUG: verifyFaceLogin response: ${response.statusCode}");
       return jsonDecode(response.body);
     } catch (e) {
       debugPrint('verifyFaceLogin Error: $e');

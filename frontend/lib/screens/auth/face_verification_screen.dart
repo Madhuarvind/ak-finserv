@@ -130,10 +130,19 @@ class _FaceVerificationScreenState extends State<FaceVerificationScreen> {
         });
       }
     } catch (e) {
-      setState(() {
-        _statusMessage = "Error: $e";
-        _isProcessing = false;
-      });
+      debugPrint("FACE_DEBUG: Face Verification catch reached: $e");
+      if (mounted) {
+        setState(() {
+          _statusMessage = "Critical Error: $e";
+          _isProcessing = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("Verification Error: $e"),
+            duration: const Duration(seconds: 10),
+          )
+        );
+      }
     }
   }
 

@@ -18,6 +18,7 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
   final TextEditingController _passwordController = TextEditingController();
   final ApiService _apiService = ApiService();
   bool _isLoading = false;
+  bool _isPasswordVisible = false;
 
   void _handleAdminLogin() async {
     if (_usernameController.text.isEmpty || _passwordController.text.isEmpty) {
@@ -166,7 +167,7 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
                           const SizedBox(height: 16),
                           TextField(
                             controller: _passwordController,
-                            obscureText: true,
+                            obscureText: !_isPasswordVisible,
                             textInputAction: TextInputAction.done,
                             onSubmitted: (_) => _handleAdminLogin(),
                             style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
@@ -174,6 +175,13 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
                               labelText: context.translate('password'),
                               labelStyle: const TextStyle(color: Color(0xFF94A3B8)),
                               prefixIcon: const Icon(Icons.lock_outline_rounded, color: Color(0xFF94A3B8)),
+                              suffixIcon: IconButton(
+                                icon: Icon(
+                                  _isPasswordVisible ? Icons.visibility_off_rounded : Icons.visibility_rounded,
+                                  color: const Color(0xFF94A3B8),
+                                ),
+                                onPressed: () => setState(() => _isPasswordVisible = !_isPasswordVisible),
+                              ),
                               filled: true,
                               fillColor: Colors.white.withValues(alpha: 0.05),
                               border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),

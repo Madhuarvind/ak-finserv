@@ -214,9 +214,12 @@ def get_line_customers(line_id):
         .all()
     )
 
-    today = datetime.utcnow().date()
-    # Simplified check: Has ANY loan of this customer been collected today on THIS line?
-    # Usually a customer has one loan per line.
+    # Calculate Today (IST Range) for collection checks
+    from datetime import timedelta
+    ist_now = datetime.utcnow() + timedelta(hours=5, minutes=30)
+    ist_today_start = ist_now.replace(hour=0, minute=0, second=0, microsecond=0)
+    utc_start = ist_today_start - timedelta(hours=5, minutes=30)
+    utc_end = utc_start + timedelta(days=1)
     
     results = []
     for m in customers_mapping:
@@ -224,14 +227,21 @@ def get_line_customers(line_id):
         active_loans = Loan.query.filter_by(customer_id=m.customer.id, status='active').all()
         loan_summaries = []
         fully_collected = True if active_loans else False
+        total_customer_collected_today = 0
         
         for l in active_loans:
-            is_collected = Collection.query.filter(
+            # Check for collection today using the standard UTC range that matches IST today
+            coll = Collection.query.filter(
                 Collection.loan_id == l.id,
-                db.func.date(Collection.created_at) == today,
+                Collection.created_at >= utc_start,
+                Collection.created_at < utc_end,
                 Collection.status != 'rejected'
-            ).first() is not None
+            ).first()
             
+            is_collected = coll is not None
+            if is_collected:
+                total_customer_collected_today += coll.amount
+
             loan_summaries.append({
                 "id": l.id,
                 "loan_id": l.loan_id,
@@ -249,7 +259,8 @@ def get_line_customers(line_id):
             "sequence": m.sequence_order,
             "is_collected_today": fully_collected,
             "active_loans": loan_summaries,
-            "loan_count": len(active_loans)
+            "loan_count": len(active_loans),
+            "amount": total_customer_collected_today # Added to fix frontend null display
         })
 
     return jsonify(results), 200

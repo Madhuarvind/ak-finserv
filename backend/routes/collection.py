@@ -485,12 +485,7 @@ def update_collection_status(collection_id):
 @jwt_required()
 def get_financial_stats():
     identity = get_jwt_identity()
-    user = User.query.filter(
-        (User.username == identity)
-        | (User.id == identity)
-        | (User.mobile_number == identity)
-        | (User.name == identity)
-    ).first()
+    user = get_user_by_identity(identity)
 
     if not user:
         return jsonify({"msg": "Admin Access Required"}), 403
@@ -500,17 +495,24 @@ def get_financial_stats():
     if current_role != UserRole.ADMIN.value:
          return jsonify({"msg": "Admin Access Required"}), 403
     
+    # Calculate Today (IST) for stats
+    ist_now = datetime.utcnow() + timedelta(hours=5, minutes=30)
+    ist_today_start = ist_now.replace(hour=0, minute=0, second=0, microsecond=0)
+    utc_start = ist_today_start - timedelta(hours=5, minutes=30)
+    utc_end = utc_start + timedelta(days=1)
+
     total_approved = (
         db.session.query(db.func.sum(Collection.amount))
         .filter_by(status="approved")
         .scalar()
         or 0
     )
-    today = datetime.utcnow().date()
+    
     today_total = (
         db.session.query(db.func.sum(Collection.amount))
         .filter(
-            db.func.date(Collection.created_at) == today,
+            Collection.created_at >= utc_start,
+            Collection.created_at < utc_end,
             Collection.status == "approved",
         )
         .scalar()
@@ -552,12 +554,7 @@ def get_financial_stats():
 @jwt_required()
 def get_agent_stats():
     identity = get_jwt_identity()
-    user = User.query.filter(
-        (User.username == identity)
-        | (User.id == identity)
-        | (User.mobile_number == identity)
-        | (User.name == identity)
-    ).first()
+    user = get_user_by_identity(identity)
 
     if not user:
         return jsonify({"msg": "User not found"}), 404
@@ -572,12 +569,19 @@ def get_agent_stats():
         or 0
     )
 
-    # Calculate Today's Collection (Including Pending/Flagged to show immediate progress)
-    today = datetime.utcnow().date()
+    # Calculate Today's Collection (IST Range)
+    ist_now = datetime.utcnow() + timedelta(hours=5, minutes=30)
+    ist_today_start = ist_now.replace(hour=0, minute=0, second=0, microsecond=0)
+    utc_start = ist_today_start - timedelta(hours=5, minutes=30)
+    utc_end = utc_start + timedelta(days=1)
+
     today_collected = (
         db.session.query(db.func.sum(Collection.amount))
-        .filter(Collection.agent_id == user.id)
-        .filter(db.func.date(Collection.created_at) == today)
+        .filter(
+            Collection.agent_id == user.id,
+            Collection.created_at >= utc_start,
+            Collection.created_at < utc_end
+        )
         .scalar()
         or 0
     )

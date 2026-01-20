@@ -111,7 +111,9 @@ class _FaceRegistrationScreenState extends State<FaceRegistrationScreen> {
     
     try {
       setState(() => _statusMessage = "Processing image...");
-      final imageBytes = await _imageFile!.readAsBytes();
+      final imageBytes = (kIsWeb && _webImageBytes != null) 
+          ? _webImageBytes! 
+          : await _imageFile!.readAsBytes();
       final kb = (imageBytes.lengthInBytes / 1024).toStringAsFixed(1);
       
       final token = await _apiService.getToken();
@@ -160,7 +162,11 @@ class _FaceRegistrationScreenState extends State<FaceRegistrationScreen> {
       if (!mounted) return;
       setState(() => _statusMessage = "Error: $e");
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Registration Error: ${e.toString()}")),
+        SnackBar(
+          content: Text("Critical Registration Error: ${e.toString()}"),
+          duration: const Duration(seconds: 10),
+          action: SnackBarAction(label: "DISMISS", onPressed: () => ScaffoldMessenger.of(context).hideCurrentSnackBar()),
+        ),
       );
     }
     if (mounted) {

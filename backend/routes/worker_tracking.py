@@ -36,23 +36,14 @@ def update_tracking():
 @jwt_required()
 def get_field_map():
     """Get all agents' last known positions (Admin only)"""
-    identity = get_jwt_identity()
-    admin = get_user_by_identity(identity)
+    from utils.auth_helpers import get_admin_user
+    admin = get_admin_user()
     
     if not admin:
         return jsonify({"msg": "unauthorized"}), 403
         
-    current_role = admin.role.value if hasattr(admin.role, 'value') else str(admin.role)
-    if current_role != UserRole.ADMIN.value and current_role != "admin":
-        return jsonify({"msg": "unauthorized"}), 403
-        
-    # Query agents more robustly (handle enum vs string)
-    agents = User.query.filter(
-        db.or_(
-            User.role == UserRole.FIELD_AGENT,
-            User.role == "field_agent"
-        )
-    ).all()
+    # Query agents directly using established pattern
+    agents = User.query.filter_by(role=UserRole.FIELD_AGENT).all()
     
     result = []
     for agent in agents:
