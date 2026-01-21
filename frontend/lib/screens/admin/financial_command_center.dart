@@ -125,15 +125,15 @@ class _FinancialCommandCenterState extends State<FinancialCommandCenter> {
     return Container(
       padding: EdgeInsets.all(compact ? 16 : 24),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.03),
+        color: Colors.white.withValues(alpha: 0.03),
         borderRadius: BorderRadius.circular(28),
-        border: Border.all(color: Colors.white.withOpacity(0.05)),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
       ),
       child: Row(
         children: [
           Container(
             padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(color: color.withOpacity(0.1), shape: BoxShape.circle),
+            decoration: BoxDecoration(color: color.withValues(alpha: 0.1), shape: BoxShape.circle),
             child: Icon(icon, color: color, size: compact ? 20 : 28),
           ),
           const SizedBox(width: 20),
@@ -165,7 +165,7 @@ class _FinancialCommandCenterState extends State<FinancialCommandCenter> {
     return Container(
       height: 200,
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.02),
+        color: Colors.white.withValues(alpha: 0.02),
         borderRadius: BorderRadius.circular(28),
       ),
       padding: const EdgeInsets.all(20),
@@ -207,14 +207,14 @@ class _FinancialCommandCenterState extends State<FinancialCommandCenter> {
         margin: const EdgeInsets.only(bottom: 12),
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.02),
+          color: Colors.white.withValues(alpha: 0.02),
           borderRadius: BorderRadius.circular(16),
         ),
         child: Row(
           children: [
             Container(
               width: 40, height: 40,
-              decoration: BoxDecoration(color: _getCategoryColor(e['category']).withOpacity(0.1), borderRadius: BorderRadius.circular(12)),
+              decoration: BoxDecoration(color: _getCategoryColor(e['category']).withValues(alpha: 0.1), borderRadius: BorderRadius.circular(12)),
               child: Center(child: Icon(Icons.receipt_long_rounded, size: 18, color: _getCategoryColor(e['category']))),
             ),
             const SizedBox(width: 16),
@@ -274,7 +274,7 @@ class _FinancialCommandCenterState extends State<FinancialCommandCenter> {
             Text("Log Business Expense", style: GoogleFonts.outfit(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white)),
             const SizedBox(height: 24),
             DropdownButtonFormField<String>(
-              value: selectedCat,
+              initialValue: selectedCat,
               dropdownColor: const Color(0xFF1E293B),
               style: const TextStyle(color: Colors.white),
               decoration: const InputDecoration(labelText: "Category", labelStyle: TextStyle(color: Colors.white60)),
@@ -299,6 +299,7 @@ class _FinancialCommandCenterState extends State<FinancialCommandCenter> {
               width: double.infinity,
               child: ElevatedButton(
                 onPressed: () async {
+                  final navigator = Navigator.of(context);
                   final amt = double.tryParse(amountController.text);
                   if (amt != null) {
                     final token = await _storage.read(key: 'jwt_token');
@@ -308,10 +309,8 @@ class _FinancialCommandCenterState extends State<FinancialCommandCenter> {
                         'amount': amt,
                         'description': descController.text,
                       }, token);
-                      if (mounted) {
-                        Navigator.pop(context);
-                        _fetchData();
-                      }
+                      navigator.pop();
+                      _fetchData();
                     }
                   }
                 },

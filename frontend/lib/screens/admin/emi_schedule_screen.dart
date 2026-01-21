@@ -167,18 +167,19 @@ class _EMIScheduleScreenState extends State<EMIScheduleScreen> {
           TextButton(onPressed: () => Navigator.pop(context), child: const Text("CANCEL")),
           ElevatedButton(
             onPressed: () async {
+              final navigator = Navigator.of(context);
+              final scaffoldMessenger = ScaffoldMessenger.of(context);
               final amount = double.tryParse(amountController.text);
               if (amount != null) {
                 final token = await _storage.read(key: 'jwt_token');
                 if (token != null) {
                   final result = await _apiService.addPenalty(emi['id'], amount, notesController.text, token);
-                  if (mounted) {
-                    Navigator.pop(context);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text(result['msg'] ?? "Penalty added"), backgroundColor: Colors.green)
-                    );
-                    _fetchSchedule();
-                  }
+                  if (!mounted) return;
+                  navigator.pop();
+                  scaffoldMessenger.showSnackBar(
+                    SnackBar(content: Text(result['msg'] ?? "Penalty added"), backgroundColor: Colors.green)
+                  );
+                  _fetchSchedule();
                 }
               }
             },

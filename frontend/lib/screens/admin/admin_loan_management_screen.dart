@@ -46,10 +46,15 @@ class _AdminLoanManagementScreenState extends State<AdminLoanManagementScreen> w
     if (token != null) {
       // Map custom UI filter to backend query params
       String? backendStatus;
-      if (_currentStatusFilter == 'active') backendStatus = 'active';
-      else if (_currentStatusFilter == 'closed') backendStatus = 'closed';
-      else if (_currentStatusFilter == 'all') backendStatus = null;
-      else if (_currentStatusFilter == 'pending_approval') backendStatus = null; // fetch all and filter manually for created/approved
+      if (_currentStatusFilter == 'active') {
+        backendStatus = 'active';
+      } else if (_currentStatusFilter == 'closed') {
+        backendStatus = 'closed';
+      } else if (_currentStatusFilter == 'all') {
+        backendStatus = null;
+      } else if (_currentStatusFilter == 'pending_approval') {
+        backendStatus = null; // fetch all and filter manually for created/approved
+      }
 
       final loans = await _apiService.getLoans(
         status: backendStatus, 
@@ -108,7 +113,7 @@ class _AdminLoanManagementScreenState extends State<AdminLoanManagementScreen> w
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.assignment_late_rounded, size: 80, color: Colors.white.withOpacity(0.05)),
+          Icon(Icons.assignment_late_rounded, size: 80, color: Colors.white.withValues(alpha: 0.05)),
           const SizedBox(height: 16),
           Text("No loans found".toUpperCase(), style: GoogleFonts.outfit(color: Colors.white24, fontWeight: FontWeight.w900, fontSize: 12, letterSpacing: 1)),
         ],
@@ -127,9 +132,9 @@ class _AdminLoanManagementScreenState extends State<AdminLoanManagementScreen> w
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.03),
+        color: Colors.white.withValues(alpha: 0.03),
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: Colors.white.withOpacity(0.05)),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
       ),
       child: Column(
         children: [
@@ -145,9 +150,9 @@ class _AdminLoanManagementScreenState extends State<AdminLoanManagementScreen> w
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                       decoration: BoxDecoration(
-                        color: statusColor.withOpacity(0.1),
+                        color: statusColor.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: statusColor.withOpacity(0.2)),
+                        border: Border.all(color: statusColor.withValues(alpha: 0.2)),
                       ),
                       child: Text(status, style: GoogleFonts.outfit(color: statusColor, fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 0.5)),
                     ),
@@ -192,7 +197,7 @@ class _AdminLoanManagementScreenState extends State<AdminLoanManagementScreen> w
           if (loan['status'] == 'created' || loan['status'] == 'active')
             Container(
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.02),
+                color: Colors.white.withValues(alpha: 0.02),
                 borderRadius: const BorderRadius.only(bottomLeft: Radius.circular(24), bottomRight: Radius.circular(24)),
               ),
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
@@ -281,11 +286,10 @@ class _AdminLoanManagementScreenState extends State<AdminLoanManagementScreen> w
     if (picked != null) {
       final token = await _storage.read(key: 'jwt_token');
       if (token != null) {
-        final result = await _apiService.approveLoan(loan['id'], {'start_date': picked.toIso8601String()}, token);
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Loan Approved Successfully"), backgroundColor: Colors.green));
-          _fetchData();
-        }
+        await _apiService.approveLoan(loan['id'], {'start_date': picked.toIso8601String()}, token);
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Loan Approved Successfully"), backgroundColor: Colors.green));
+        _fetchData();
       }
     }
   }
@@ -338,6 +342,8 @@ class _AdminLoanManagementScreenState extends State<AdminLoanManagementScreen> w
           TextButton(onPressed: () => Navigator.pop(context), child: const Text("CANCEL")),
           ElevatedButton(
             onPressed: () async {
+              final navigator = Navigator.of(context);
+              final scaffoldMessenger = ScaffoldMessenger.of(context);
               final token = await _storage.read(key: 'jwt_token');
               if (token != null) {
                 final result = await _apiService.restructureLoan(loan['id'], {
@@ -346,13 +352,12 @@ class _AdminLoanManagementScreenState extends State<AdminLoanManagementScreen> w
                   'remarks': remarksController.text
                 }, token);
                 
-                if (mounted) {
-                  Navigator.pop(context);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text(result['msg'] ?? "Restructured"), backgroundColor: Colors.green)
-                  );
-                  _fetchData();
-                }
+                if (!mounted) return;
+                navigator.pop();
+                scaffoldMessenger.showSnackBar(
+                  SnackBar(content: Text(result['msg'] ?? "Restructured"), backgroundColor: Colors.green)
+                );
+                _fetchData();
               }
             },
             child: const Text("RESTRUCTURE"),
@@ -400,15 +405,15 @@ class _AdminLoanManagementScreenState extends State<AdminLoanManagementScreen> w
           TextButton(onPressed: () => Navigator.pop(context), child: const Text("CANCEL")),
           ElevatedButton(
             onPressed: () async {
+              final navigator = Navigator.of(context);
               final amount = double.tryParse(amountController.text);
               if (amount != null) {
                 final token = await _storage.read(key: 'jwt_token');
                 if (token != null) {
                   await _apiService.forecloseLoan(loan['id'], amount, reasonController.text, token);
-                  if (mounted) {
-                    Navigator.pop(context);
-                    _fetchData();
-                  }
+                  if (!mounted) return;
+                  navigator.pop();
+                  _fetchData();
                 }
               }
             },

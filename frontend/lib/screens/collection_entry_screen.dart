@@ -11,7 +11,6 @@ import 'package:flutter/services.dart';
 import 'package:record/record.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
-import 'dart:io';
 
 class CollectionEntryScreen extends StatefulWidget {
   const CollectionEntryScreen({super.key});
@@ -41,9 +40,7 @@ class _CollectionEntryScreenState extends State<CollectionEntryScreen> {
   final AudioRecorder _audioRecorder = AudioRecorder();
   bool _isRecording = false;
   String? _recordedPath;
-  String? _transcription;
   int? _audioNoteId;
-  bool _isUploadingAudio = false;
 
   @override
   void initState() {
@@ -157,7 +154,7 @@ class _CollectionEntryScreenState extends State<CollectionEntryScreen> {
 
     // Upload audio note if exists
     if (_recordedPath != null) {
-      setState(() => _isUploadingAudio = true);
+      // Logic for audio note upload
       final audioResult = await _apiService.uploadAudioNote(
         filePath: _recordedPath!,
         token: token,
@@ -166,8 +163,6 @@ class _CollectionEntryScreenState extends State<CollectionEntryScreen> {
       );
       if (mounted) {
         setState(() {
-          _isUploadingAudio = false;
-          _transcription = audioResult['transcription'];
           _audioNoteId = audioResult['id'];
         });
       }

@@ -1,0 +1,8 @@
+﻿
+   info - Don't use 'BuildContext's across async gaps, guarded by an unrelated 'mounted' check - lib\screens\admin\admin_loan_management_screen.dart:354:30 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps, guarded by an unrelated 'mounted' check - lib\screens\admin\admin_loan_management_screen.dart:355:38 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps, guarded by an unrelated 'mounted' check - lib\screens\admin\admin_loan_management_screen.dart:412:32 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps, guarded by an unrelated 'mounted' check - lib\screens\admin\emi_schedule_screen.dart:176:32 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps, guarded by an unrelated 'mounted' check - lib\screens\admin\emi_schedule_screen.dart:177:40 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps - lib\screens\admin\financial_command_center.dart:306:54 - use_build_context_synchronously
+
