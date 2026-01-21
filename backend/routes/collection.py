@@ -10,6 +10,7 @@ from models import (
     EMISchedule,
     LoanAuditLog,
     Line,
+    LineCustomer,
 )
 from utils.auth_helpers import get_user_by_identity
 from datetime import datetime, timedelta
@@ -557,36 +558,86 @@ def get_agent_stats():
     if not user:
         return jsonify({"msg": "User not found"}), 404
 
+    # Fix Timezone (IST)
+    ist_offset = timedelta(hours=5, minutes=30)
+    now_ist = datetime.utcnow() + ist_offset
+    today = now_ist.date()
+
+    # Calculate IST Start/End for Querying UTC Timestamp
+    start_of_day_ist = datetime(today.year, today.month, today.day)
+    start_of_day_utc = start_of_day_ist - ist_offset
+    end_of_day_utc = start_of_day_utc + timedelta(days=1)
+    
+    # helper for status list combined with case insensitive check
+    valid_statuses = ["approved", "pending", "flagged"]
+
+    # 1. Total Collected (All Time) - Case Insensitive
     total_collected = (
         db.session.query(db.func.sum(Collection.amount))
         .filter(
             Collection.agent_id == user.id,
-            Collection.status.in_(["approved", "pending", "flagged"])
+            db.func.lower(Collection.status).in_(valid_statuses)
         )
         .scalar()
         or 0
     )
 
-    # Calculate Today's Collection (Including Pending/Flagged to show immediate progress)
-    today = datetime.utcnow().date()
+    # 2. Today's Collected (IST Corrected)
     today_collected = (
         db.session.query(db.func.sum(Collection.amount))
         .filter(Collection.agent_id == user.id)
-        .filter(db.func.date(Collection.created_at) == today)
+        .filter(
+            Collection.created_at >= start_of_day_utc,
+            Collection.created_at < end_of_day_utc
+        )
+        .filter(db.func.lower(Collection.status).in_(valid_statuses))
         .scalar()
         or 0
     )
 
-    # In a real app, 'goal' might come from a performance table
-    # For now, we return a mock goal or calculate based on assigned loans
-    goal = 50000.0
+    # 3. Dynamic Goal Calculation
+    # Sum of EMI balances due <= today for all active loans of customers in lines assigned to this agent
+    goal = (
+        db.session.query(db.func.sum(EMISchedule.balance))
+        .join(Loan, EMISchedule.loan_id == Loan.id)
+        .join(Customer, Loan.customer_id == Customer.id)
+        .join(LineCustomer, Customer.id == LineCustomer.customer_id)
+        .join(Line, LineCustomer.line_id == Line.id)
+        .filter(
+            Line.agent_id == user.id,
+            Loan.status == "active",
+            EMISchedule.status.in_(["pending", "partial", "overdue"]),
+            db.func.date(EMISchedule.due_date) <= today
+        )
+        .scalar()
+        or 0
+    )
+    
+    # Fallback if no lines assigned (maybe direct customer assignment?)
+    if goal == 0:
+        goal = (
+            db.session.query(db.func.sum(EMISchedule.balance))
+            .join(Loan, EMISchedule.loan_id == Loan.id)
+            .join(Customer, Loan.customer_id == Customer.id)
+            .filter(
+                Customer.assigned_worker_id == user.id,
+                Loan.status == "active",
+                EMISchedule.status.in_(["pending", "partial", "overdue"]),
+                db.func.date(EMISchedule.due_date) <= today
+            )
+            .scalar()
+            or 0
+        )
+    
+    # Just in case goal is still 0 (New Agent?), provide a small target or 0.
+    # We keep it 0 to reflect reality.
 
     return (
         jsonify(
             {
                 "collected": float(total_collected),
                 "today_collected": float(today_collected),
-                "goal": goal,
+                "goal": float(goal),
                 "currency": "INR",
                 "timestamp": datetime.utcnow().isoformat(),
             }
