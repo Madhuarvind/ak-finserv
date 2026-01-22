@@ -69,8 +69,8 @@ def get_raw_table_data(table_name):
 @jwt_required()
 def ai_analyst():
     """
-    Simulated AI Financial Analyst
-    Translates natural language queries into financial insights
+    Advanced AI Financial Analyst
+    Parses natural language queries for dates, entities, and financial intent.
     """
     identity = get_jwt_identity()
     user = get_user_by_identity(identity)
@@ -80,138 +80,183 @@ def ai_analyst():
     data = request.get_json()
     query = data.get("query", "").lower()
 
-    response = {
-        "text": "I'm sorry, I couldn't find specific data for that request. Try asking about 'total collections', 'today's cash', or 'top agents'.",
-        "data": None,
-        "type": "text",
-    }
-
-    # 0. Greetings
-    if any(greet in query for greet in ["hi", "hello", "hey", "vanakkam"]):
-        response["text"] = (
-            "Hello! I am your AI Financial Analyst. You can ask me about collections, agent performance, or risk. For example: 'What is today's total cash?'"
-        )
-        return jsonify(response), 200
-
-    # 1. Total Collections Query (All time or general)
-    if "total" in query and (
-        "collection" in query or "collect" in query or "all" in query
-    ):
-        total_sum = (
-            db.session.query(db.func.sum(Collection.amount))
-            .filter_by(status="approved")
-            .scalar()
-            or 0
-        )
-        total_count = Collection.query.filter_by(status="approved").count()
-        response["text"] = (
-            f"Our lifetime approved collections reached ₹{total_sum:,.2f} across {total_count} entries. This reflects a healthy recovery rate across all lines."
-        )
-        response["data"] = {
-            "value": total_sum,
-            "metric": "LifeTime Collections",
-            "count": total_count,
-        }
-        response["type"] = "metric"
-
-    # 2. Today's Cash or just "Total cash"
-    elif "today" in query or "day" in query or "cash" in query:
-        from datetime import datetime
-
+    # --- Helper: Time Window Parser ---
+    from datetime import datetime, timedelta
+    
+    def get_date_range(text):
         today = datetime.utcnow().date()
+        start_date = None
+        end_date = None
+        label = "All Time"
 
-        today_cash = (
-            db.session.query(db.func.sum(Collection.amount))
-            .filter(
-                db.func.date(Collection.created_at) == today,
-                Collection.status == "approved",
-                Collection.payment_mode == "cash",
+        if "today" in text:
+            start_date = today
+            end_date = today
+            label = "Today"
+        elif "yesterday" in text:
+            start_date = today - timedelta(days=1)
+            end_date = start_date
+            label = "Yesterday"
+        elif "this week" in text:
+            start_date = today - timedelta(days=today.weekday())
+            end_date = today
+            label = "This Week"
+        elif "last week" in text:
+            start_date = today - timedelta(days=today.weekday() + 7)
+            end_date = start_date + timedelta(days=6)
+            label = "Last Week"
+        elif "this month" in text:
+            start_date = today.replace(day=1)
+            end_date = today
+            label = "This Month"
+        elif "last month" in text:
+            last_month_end = today.replace(day=1) - timedelta(days=1)
+            start_date = last_month_end.replace(day=1)
+            end_date = last_month_end
+            label = "Last Month"
+        
+        return start_date, end_date, label
+
+    # --- Helper: Value Formatter ---
+    def fmt_cur(val):
+        return f"₹{val:,.2f}"
+
+    try:
+        start_date, end_date, time_label = get_date_range(query)
+        
+        # --- Intent 1: Agent Performance (Specific Name) ---
+        # Scan for agent names in the query
+        agents = User.query.filter_by(role=UserRole.FIELD_AGENT).all()
+        target_agent = None
+        for agent in agents:
+            if agent.name.lower() in query:
+                target_agent = agent
+                break
+        
+        if target_agent:
+            # Agent-specific query
+            coll_query = db.session.query(db.func.sum(Collection.amount)).filter(
+                Collection.agent_id == target_agent.id,
+                Collection.status == "approved"
             )
-            .scalar()
-            or 0
-        )
+            
+            if start_date:
+                coll_query = coll_query.filter(db.func.date(Collection.created_at) >= start_date)
+                if end_date:
+                    coll_query = coll_query.filter(db.func.date(Collection.created_at) <= end_date)
+            
+            total = coll_query.scalar() or 0
+            
+            response_text = f"📊 **{target_agent.name} ({time_label})**\n" \
+                            f"Total Collections: **{fmt_cur(total)}**"
+            
+            if "status" in query or "where" in query:
+                status = "On Duty" if target_agent.duty_status == "on_duty" else "Off Duty"
+                response_text += f"\nCurrent Status: {status} ({target_agent.current_activity})"
 
-        today_upi = (
-            db.session.query(db.func.sum(Collection.amount))
-            .filter(
-                db.func.date(Collection.created_at) == today,
-                Collection.status == "approved",
-                Collection.payment_mode == "upi",
-            )
-            .scalar()
-            or 0
-        )
+            return jsonify({
+                "text": response_text,
+                "type": "agent_highlight",
+                "data": {"agent": target_agent.name, "amount": total}
+            }), 200
 
-        today_count = Collection.query.filter(
-            db.func.date(Collection.created_at) == today,
-            Collection.status == "approved",
-        ).count()
+        # --- Intent 2: General Collection Summary (Time-based) ---
+        if any(w in query for w in ["collection", "collected", "recovery", "income", "revenue"]):
+            coll_query = db.session.query(db.func.sum(Collection.amount)).filter(Collection.status == "approved")
+            count_query = Collection.query.filter(Collection.status == "approved")
+            
+            if start_date:
+                coll_query = coll_query.filter(db.func.date(Collection.created_at) >= start_date)
+                count_query = count_query.filter(db.func.date(Collection.created_at) >= start_date)
+                if end_date:
+                    coll_query = coll_query.filter(db.func.date(Collection.created_at) <= end_date)
+                    count_query = count_query.filter(db.func.date(Collection.created_at) <= end_date)
 
-        top_agent_today = (
-            db.session.query(User.name, db.func.sum(Collection.amount))
-            .join(Collection, User.id == Collection.agent_id)
-            .filter(
-                db.func.date(Collection.created_at) == today,
-                Collection.status == "approved",
-            )
-            .group_by(User.id)
-            .order_by(db.func.sum(Collection.amount).desc())
-            .first()
-        )
+            total = coll_query.scalar() or 0
+            count = count_query.count()
+            
+            # Breakdown by mode
+            cash_q = coll_query.filter(Collection.payment_mode == "cash").scalar() or 0
+            upi_q = coll_query.filter(Collection.payment_mode == "upi").scalar() or 0
+            
+            response_text = f"💰 **Financial Summary ({time_label})**\n" \
+                            f"Total Recovery: **{fmt_cur(total)}**\n" \
+                            f"Receipts Generated: {count}\n\n" \
+                            f"• Cash: {fmt_cur(cash_q)}\n" \
+                            f"• UPI: {fmt_cur(upi_q)}"
+            
+            return jsonify({
+                "text": response_text,
+                "type": "metric",
+                "data": {"total": total, "cash": cash_q, "upi": upi_q}
+            }), 200
 
-        if "upi" in query:
-            response["text"] = (
-                f"Today's total approved UPI collection is ₹{today_upi:,.2f}."
-            )
-            response["data"] = {"value": today_upi, "metric": "Today's UPI"}
-        else:
-            summary_text = f"Today's Tally: Total ₹{today_cash + today_upi:,.2f} recovered across {today_count} collections.\n\n"
-            summary_text += f"• Cash: ₹{today_cash:,.2f}\n"
-            summary_text += f"• UPI: ₹{today_upi:,.2f}\n"
-            if top_agent_today:
-                summary_text += f"\nLeaderboard: {top_agent_today[0]} is leading today with ₹{top_agent_today[1]:,.2f} collected."
+        # --- Intent 3: Risk & Overdue ---
+        if any(w in query for w in ["risk", "overdue", "pending", "default", "arrears"]):
+            # Overdue EMIs
+            overdue_emi_sum = db.session.query(db.func.sum(EMISchedule.balance)).filter(
+                EMISchedule.status == "pending",
+                db.func.cast(EMISchedule.due_date, db.Date) < datetime.utcnow().date()
+            ).scalar() or 0
+            
+            # Total Pending Loan Amount
+            total_pending = db.session.query(db.func.sum(Loan.pending_amount)).filter(
+                Loan.status == "active"
+            ).scalar() or 0
+            
+            response_text = "⚠️ **Risk Assessment**\n"
+            if "overdue" in query:
+                response_text += f"Total Overdue ARREARS: **{fmt_cur(overdue_emi_sum)}**\n" \
+                                 f"Immediate action required for these missed payments."
+            else:
+                response_text += f"Total Outstanding Principal: **{fmt_cur(total_pending)}**\n" \
+                                 f"Current Overdue ARREARS: **{fmt_cur(overdue_emi_sum)}**"
 
-            response["text"] = summary_text
-            response["data"] = {
-                "cash": today_cash,
-                "upi": today_upi,
-                "total": today_cash + today_upi,
-            }
+            return jsonify({
+                "text": response_text,
+                "type": "risk_summary",
+                "data": {"overdue": overdue_emi_sum, "pending": total_pending}
+            }), 200
 
-        response["type"] = "metric"
+        # --- Intent 4: Loan/Customer Status ---
+        if any(w in query for w in ["how many", "count", "status", "list"]):
+            if "customer" in query:
+                total_c = Customer.query.count()
+                active_c = Customer.query.filter_by(status="active").count()
+                return jsonify({"text": f"👥 **Customer Base**\nTotal: {total_c}\nActive: {active_c}"}), 200
+            
+            if "loan" in query:
+                 active_l = Loan.query.filter_by(status="active").count()
+                 closed_l = Loan.query.filter_by(status="closed").count()
+                 return jsonify({"text": f"📜 **Loan Portfolio**\nActive Loans: {active_l}\nClosed Loans: {closed_l}"}), 200
+            
+            if "agent" in query:
+                on_duty = User.query.filter_by(role=UserRole.FIELD_AGENT, duty_status="on_duty").count()
+                total_a = User.query.filter_by(role=UserRole.FIELD_AGENT).count()
+                return jsonify({"text": f"👷 **Field Force**\nOn Duty: {on_duty}\nTotal Agents: {total_a}"}), 200
 
-    # 3. Best/Top Agent (All time)
-    elif (
-        "top" in query or "best" in query or "agent" in query or "performance" in query
-    ):
-        top_agent = (
-            db.session.query(User.name, db.func.sum(Collection.amount))
-            .join(Collection, User.id == Collection.agent_id)
-            .filter(Collection.status == "approved")
-            .group_by(User.id)
-            .order_by(db.func.sum(Collection.amount).desc())
-            .first()
-        )
+        # --- Fallback / Greetings ---
+        if any(greet in query for greet in ["hi", "hello", "hey"]):
+             return jsonify({
+                "text": "Hello! I am your Advanced AI Analyst. You can ask me things like:\n"
+                        "• 'How much did Madhu collect yesterday?'\n"
+                        "• 'What is the revenue last month?'\n"
+                        "• 'Show me overdue risk'\n"
+                        "• 'How many active loans?'"
+            }), 200
 
-        if top_agent:
-            response["text"] = (
-                f"Our all-time top performing agent is {top_agent[0]}, who has successfully recovered ₹{top_agent[1]:,.2f}. This agent consistently maintains high geofencing accuracy."
-            )
-            response["data"] = {"name": top_agent[0], "value": top_agent[1]}
-            response["type"] = "agent_highlight"
+        # --- Default Catch-All ---
+        return jsonify({
+            "text": "I didn't quite catch that. Try specifying a date (e.g., 'yesterday'), an agent name, or a topic like 'collections' or 'overdue'.",
+            "type": "text"
+        }), 200
 
-    # 4. Defaults / High Risk
-    elif "risk" in query or "default" in query:
-        high_risk_count = Loan.query.filter(
-            Loan.pending_amount > (Loan.principal_amount * 0.8)
-        ).count()
-        response["text"] = (
-            f"I've identified {high_risk_count} loans with a potential high risk of default (over 80% balance remaining)."
-        )
-        response["data"] = {"count": high_risk_count}
-        response["type"] = "risk_summary"
-
-    return jsonify(response), 200
+    except Exception as e:
+        print(f"AI Error: {e}")
+        return jsonify({
+            "text": "My brain encountered a glitch processing that complex query. Please try again.",
+            "type": "error"
+        }), 500
 
 
 @admin_tools_bp.route("/seed-users", methods=["POST"])

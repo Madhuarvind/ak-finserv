@@ -800,7 +800,7 @@ class _AdminDashboardState extends State<AdminDashboard> with TickerProviderStat
   void _showAIAnalyst(BuildContext context) {
     final textController = TextEditingController();
     List<Map<String, dynamic>> messages = [
-      {'text': 'Hello! I am your AI Financial Analyst. Ask me anything about collections or performance.', 'isAi': true}
+      {'text': 'Hello! I am your AI Financial Analyst. You can ask me about:\n\n• Collections & Performance\n• Active Loans & Customer Counts\n• Pending Due & Overdue Lists\n• Recent Activity & Interest Income\n\nTry asking: "How much pending outstanding today?"', 'isAi': true}
     ];
 
     showModalBottomSheet(
