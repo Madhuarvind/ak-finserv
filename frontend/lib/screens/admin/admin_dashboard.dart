@@ -10,6 +10,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'admin_customer_list_screen.dart'; // Import for search navigation
 import 'package:intl/intl.dart';
 import 'cash_settlement_screen.dart';
+import '../common/qr_scan_screen.dart';
 
 class AdminDashboard extends StatefulWidget {
   final int initialTab;
@@ -346,8 +347,6 @@ class _AdminDashboardState extends State<AdminDashboard> with TickerProviderStat
                   ),
                 ),
                 const SizedBox(height: 12),
-                _buildMaintenanceSection(),
-                const SizedBox(height: 12),
                 _buildAutoAccountingSection(),
                 const SizedBox(height: 12),
                 _buildErrorDetectionSection(),
@@ -381,8 +380,6 @@ class _AdminDashboardState extends State<AdminDashboard> with TickerProviderStat
                     scrollDirection: Axis.horizontal,
                     padding: const EdgeInsets.symmetric(horizontal: 24),
                     children: [
-                      _buildModernActionTile(context, "Ask AI", Icons.auto_awesome, '', themeColor: AppTheme.primaryColor, isCustom: true, onTap: () => _showAIAnalyst(context)),
-                      const SizedBox(width: 16),
                       _buildModernActionTile(context, context.translate('qr_scan'), Icons.qr_code_scanner_rounded, '/admin/qr_scan'),
                       const SizedBox(width: 16),
                       _buildModernActionTile(context, "Loan Management", Icons.monetization_on_rounded, '/admin/loan_management'),
@@ -764,7 +761,7 @@ class _AdminDashboardState extends State<AdminDashboard> with TickerProviderStat
     );
   }
 
-  Widget _buildModernActionTile(BuildContext context, String title, IconData icon, String route, {bool isCustom = false, VoidCallback? onTap, Color? themeColor}) {
+  Widget _buildModernActionTile(BuildContext context, String title, IconData icon, String route, {bool isCustom = false, VoidCallback? onTap}) {
     return InkWell(
       onTap: isCustom ? onTap : () => Navigator.pushNamed(context, route).then((_) => _fetchDashboardData()),
       borderRadius: BorderRadius.circular(32),
@@ -772,9 +769,9 @@ class _AdminDashboardState extends State<AdminDashboard> with TickerProviderStat
         width: 100,
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: themeColor != null ? themeColor.withValues(alpha: 0.2) : Colors.white.withValues(alpha: 0.05),
+          color: Colors.white.withValues(alpha: 0.05),
           borderRadius: BorderRadius.circular(32),
-          border: Border.all(color: themeColor != null ? themeColor.withValues(alpha: 0.3) : Colors.white.withValues(alpha: 0.05)),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
         ),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -803,7 +800,7 @@ class _AdminDashboardState extends State<AdminDashboard> with TickerProviderStat
   void _showAIAnalyst(BuildContext context) {
     final textController = TextEditingController();
     List<Map<String, dynamic>> messages = [
-      {'text': 'Hello! I am your AI Financial Analyst. Ask me about "Profit", "7-day Forecast", or "Agent Efficiency".', 'isAi': true}
+      {'text': 'Hello! I am your AI Financial Analyst. Ask me anything about collections or performance.', 'isAi': true}
     ];
 
     showModalBottomSheet(
@@ -934,72 +931,6 @@ class _AdminDashboardState extends State<AdminDashboard> with TickerProviderStat
             ),
           );
         },
-      ),
-    );
-  }
-
-  Widget _buildMaintenanceSection() {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 24),
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: const Color(0xFF1E293B),
-        borderRadius: BorderRadius.circular(32),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              const Icon(Icons.settings_suggest_rounded, color: AppTheme.primaryColor, size: 20),
-              const SizedBox(width: 8),
-              Text("System Maintenance", style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
-            ],
-          ),
-          const SizedBox(height: 20),
-          Row(
-            children: [
-              Expanded(
-                child: _buildActionBtn(
-                  label: "Verify Balances",
-                  icon: Icons.account_balance_wallet_rounded,
-                  onTap: _verifyBalances,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _buildActionBtn(
-                  label: "Recalculate Tally",
-                  icon: Icons.refresh_rounded,
-                  onTap: _recalculateTally,
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildActionBtn({required String label, required IconData icon, required VoidCallback onTap}) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(16),
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 16),
-        decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.05),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
-        ),
-        child: Column(
-          children: [
-            Icon(icon, color: AppTheme.primaryColor, size: 20),
-            const SizedBox(height: 8),
-            Text(label, style: GoogleFonts.outfit(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
-          ],
-        ),
       ),
     );
   }
@@ -1268,69 +1199,5 @@ class _AdminDashboardState extends State<AdminDashboard> with TickerProviderStat
         ),
       ],
     );
-  }
-
-  void _verifyBalances() async {
-    final token = await _apiService.getToken();
-    if (token == null) return;
-    
-    if (!mounted) return;
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => const Center(child: CircularProgressIndicator(color: AppTheme.primaryColor)),
-    );
-
-    final result = await _apiService.verifyBalances(token);
-    
-    if (!mounted) return;
-    Navigator.pop(context);
-
-    if (result['status'] == 'success') {
-      final drifts = result['drifts'] as List;
-      if (drifts.isEmpty) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text("All balances are consistent!")),
-          );
-        }
-      } else {
-        if (mounted) {
-          showDialog(
-            context: context,
-            builder: (context) => AlertDialog(
-              title: const Text("Balance Drift Detected"),
-              content: Text("Found ${drifts.length} loans with balance inconsistencies. Correct them?"),
-              actions: [
-                TextButton(onPressed: () => Navigator.pop(context), child: const Text("Later")),
-                ElevatedButton(onPressed: () => Navigator.pop(context), child: const Text("Fix All")),
-              ],
-            ),
-          );
-        }
-      }
-    }
-  }
-
-  void _recalculateTally() async {
-    final token = await _apiService.getToken();
-    if (token == null) return;
-
-    if (!mounted) return;
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => const Center(child: CircularProgressIndicator(color: AppTheme.primaryColor)),
-    );
-
-    final result = await _apiService.recalculateAccounting(token);
-    
-    if (!mounted) return;
-    Navigator.pop(context);
-    
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(result['msg'] ?? "Recalculation complete")),
-    );
-    _fetchDashboardData();
   }
 }

@@ -528,6 +528,61 @@ class _WorkerDashboardState extends State<WorkerDashboard> {
     );
   }
 
+  Widget _buildOverviewCard() {
+    final collected = double.tryParse(_stats['today_collected']?.toString() ?? _stats['collected']?.toString() ?? '0') ?? 0;
+    final goal = double.tryParse(_stats['goal']?.toString() ?? '50000') ?? 50000;
+    final progress = (goal > 0 ? (collected / goal) : 0.0).clamp(0.0, 1.0);
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1E293B),
+        borderRadius: BorderRadius.circular(32),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.2),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
+          )
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                "My Today's Collection", // Changed Title
+                style: GoogleFonts.outfit(color: Colors.white70, fontSize: 16, fontWeight: FontWeight.w500),
+              ),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: AppTheme.primaryColor.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: const Icon(Icons.flash_on_rounded, color: AppTheme.primaryColor),
+              )
+            ],
+          ),
+          const SizedBox(height: 24),
+          Text(
+            "₹${collected.toStringAsFixed(0)}",
+            style: GoogleFonts.outfit(
+              color: Colors.white,
+              fontSize: 48,
+              fontWeight: FontWeight.w900,
+              height: 1.0,
+            ),
+            overflow: TextOverflow.ellipsis,
+          ),
+        ],
+      ),
+    );
+  }
 
   Widget _buildModernActionTile(BuildContext context, String title, IconData icon, String route, Color themeColor, {bool isCustom = false, VoidCallback? onTap}) {
     return InkWell(

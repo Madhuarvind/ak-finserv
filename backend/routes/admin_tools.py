@@ -13,12 +13,8 @@ from models import (
     CustomerNote,
     CustomerDocument,
     SystemSetting,
-    EMISchedule,
-    DailyAccountingReport,
-    LoginLog,
 )
 from utils.auth_helpers import get_user_by_identity
-from datetime import datetime, timedelta
 
 admin_tools_bp = Blueprint("admin_tools", __name__)
 
@@ -184,93 +180,27 @@ def ai_analyst():
 
         response["type"] = "metric"
 
-    # 3. P&L / Business Health
-    elif "profit" in query or "pnl" in query or "health" in query or "performance" in query:
-        # Heuristic: Interest earned (from EMISchedules marked paid) - estimated operating costs
-        # In this simplistic model, let's look at total interest collected
-        from models import EMISchedule
-        total_interest_earned = (
-            db.session.query(db.func.sum(EMISchedule.interest_part))
-            .filter_by(status="paid")
-            .scalar()
-            or 0
-        )
-        
-        # Heuristic expenses from DailySettlement
-        total_expenses = (
-            db.session.query(db.func.sum(DailySettlement.expenses))
-            .filter_by(status="verified")
-            .scalar()
-            or 0
-        )
-        
-        net_profit = total_interest_earned - total_expenses
-        
-        response["text"] = (
-            f"Financial Health: Our estimated Net Profit (Interest Earned - Operating Expenses) is ₹{net_profit:,.2f}.\n\n"
-            f"• Gross Interest: ₹{total_interest_earned:,.2f}\n"
-            f"• Verified Expenses: ₹{total_expenses:,.2f}"
-        )
-        response["data"] = {
-            "interest": total_interest_earned,
-            "expenses": total_expenses,
-            "net": net_profit
-        }
-        response["type"] = "financial_summary"
-
-    # 4. Forecasting (Next 7 days)
-    elif "forecast" in query or "expected" in query or "future" in query:
-        from datetime import datetime, timedelta
-        from models import EMISchedule
-        
-        today = datetime.utcnow().date()
-        next_week = today + timedelta(days=7)
-        
-        expected_7d = (
-            db.session.query(db.func.sum(EMISchedule.amount))
-            .filter(
-                db.func.date(EMISchedule.due_date) > today,
-                db.func.date(EMISchedule.due_date) <= next_week,
-                EMISchedule.status == "pending"
-            )
-            .scalar()
-            or 0
-        )
-        
-        response["text"] = (
-            f"Cashflow Forecast: We expect to recover approximately ₹{expected_7d:,.2f} over the next 7 days based on the current EMI schedule."
-        )
-        response["data"] = {"value": expected_7d, "period": "7 days"}
-        response["type"] = "forecast"
-
-    # 5. Agent Efficiency
-    elif "efficiency" in query or "top" in query or "best" in query or "ranking" in query:
-        from models import EMISchedule, Collection, User
-        
-        # Rank agents by (Collected Today / Assigned Today) if possible, 
-        # but the schema doesn't strictly have 'assigned' per day.
-        # Fallback to total collection ranking as currently implemented, 
-        # or list active agents by volume.
-        
-        top_performers = (
+    # 3. Best/Top Agent (All time)
+    elif (
+        "top" in query or "best" in query or "agent" in query or "performance" in query
+    ):
+        top_agent = (
             db.session.query(User.name, db.func.sum(Collection.amount))
             .join(Collection, User.id == Collection.agent_id)
             .filter(Collection.status == "approved")
             .group_by(User.id)
             .order_by(db.func.sum(Collection.amount).desc())
-            .limit(3)
-            .all()
+            .first()
         )
-        
-        summary = "Operational Efficiency (Top 3 Agents):\n"
-        for i, (name, total) in enumerate(top_performers):
-            summary += f"{i+1}. {name}: ₹{total:,.2f}\n"
-            
-        response["text"] = summary
-        response["data"] = [{"name": n, "value": v} for n, v in top_performers]
-        response["type"] = "ranking"
 
-    # 6. Defaults / High Risk
+        if top_agent:
+            response["text"] = (
+                f"Our all-time top performing agent is {top_agent[0]}, who has successfully recovered ₹{top_agent[1]:,.2f}. This agent consistently maintains high geofencing accuracy."
+            )
+            response["data"] = {"name": top_agent[0], "value": top_agent[1]}
+            response["type"] = "agent_highlight"
+
+    # 4. Defaults / High Risk
     elif "risk" in query or "default" in query:
         high_risk_count = Loan.query.filter(
             Loan.pending_amount > (Loan.principal_amount * 0.8)
@@ -328,97 +258,3 @@ def seed_users():
     except Exception as e:
         db.session.rollback()
         return jsonify({"msg": "Seeding failed", "error": str(e)}), 500
-
-
-@admin_tools_bp.route("/recalculate-accounting", methods=["POST"])
-@jwt_required()
-def recalculate_accounting():
-    """
-    Regenerates DailyAccountingReport records based on raw Collection data.
-    Useful for fixing historical drift.
-    """
-    from models import Collection, DailyAccountingReport, UserRole
-    from datetime import datetime, timedelta
-    
-    identity = get_jwt_identity()
-    user = get_user_by_identity(identity)
-    if not user or user.role != UserRole.ADMIN:
-        return jsonify({"msg": "Access Denied"}), 403
-
-    data = request.get_json()
-    days = data.get("days", 30)
-    
-    start_date = (datetime.utcnow() - timedelta(days=days)).date()
-    
-    try:
-        # Process day by day
-        for i in range(days + 1):
-            target_date = start_date + timedelta(days=i)
-            
-            # Aggregate collections for this date
-            collections = Collection.query.filter(
-                db.func.date(Collection.created_at) == target_date,
-                Collection.status == "approved"
-            ).all()
-            
-            total = sum(c.amount for c in collections)
-            cash = sum(c.amount for c in collections if c.payment_mode == "cash")
-            upi = sum(c.amount for c in collections if c.payment_mode == "upi")
-            
-            # Update or create report
-            report = DailyAccountingReport.query.filter_by(report_date=target_date).first()
-            if not report:
-                report = DailyAccountingReport(report_date=target_date)
-                db.session.add(report)
-            
-            report.total_amount = total
-            report.cash_amount = cash
-            report.upi_amount = upi
-            
-        db.session.commit()
-        return jsonify({"msg": f"Recalculated accounting for the last {days} days."}), 200
-        
-    except Exception as e:
-        db.session.rollback()
-        return jsonify({"msg": "Recalculation failed", "error": str(e)}), 500
-
-
-@admin_tools_bp.route("/verify-balances", methods=["GET"])
-@jwt_required()
-def verify_balances():
-    """
-    Detects if Loan.pending_amount drifts from the sum of pending EMISchedule.amount.
-    """
-    from models import Loan, EMISchedule, UserRole
-    
-    identity = get_jwt_identity()
-    user = get_user_by_identity(identity)
-    if not user or user.role != UserRole.ADMIN:
-        return jsonify({"msg": "Access Denied"}), 403
-
-    drift_detected = []
-    
-    loans = Loan.query.filter(Loan.status.in_(["active", "overdue"])).all()
-    for loan in loans:
-        emi_sum = (
-            db.session.query(db.func.sum(EMISchedule.amount))
-            .filter_by(loan_id=loan.id, status="pending")
-            .scalar()
-            or 0
-        )
-        
-        # We allow a very small epsilon for float precision
-        if abs(loan.pending_amount - emi_sum) > 0.01:
-            drift_detected.append({
-                "loan_id": loan.loan_id,
-                "customer": loan.customer.name,
-                "system_pending": loan.pending_amount,
-                "schedule_sum": emi_sum,
-                "drift": loan.pending_amount - emi_sum
-            })
-            
-    return jsonify({
-        "status": "warning" if drift_detected else "synced",
-        "drifts": drift_detected,
-        "checked_count": len(loans)
-    }), 200

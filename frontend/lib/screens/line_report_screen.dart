@@ -175,7 +175,7 @@ class _LineReportScreenState extends State<LineReportScreen> {
         backgroundColor: Colors.transparent,
         elevation: 0,
         iconTheme: const IconThemeData(color: Colors.white),
-        title: Text(widget.period == 'daily' ? context.translate('daily_report') : context.translate('weekly_report'), style: GoogleFonts.outfit(fontWeight: FontWeight.bold, color: Colors.white)),
+        title: Text('${widget.period == 'daily' ? context.translate('daily_report') : context.translate('weekly_report')}', style: GoogleFonts.outfit(fontWeight: FontWeight.bold, color: Colors.white)),
         actions: [
           if (!_isLoading && _reportData != null)
             IconButton(

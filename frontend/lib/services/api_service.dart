@@ -1635,6 +1635,25 @@ class ApiService {
     }
   }
 
+  Future<Map<String, dynamic>> askAiAnalyst(String query, String token) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$_apiBase/admin/ai-analyst'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode({'query': query}),
+      ).timeout(const Duration(seconds: 20));
+      return jsonDecode(response.body);
+    } catch (e) {
+      return {
+        'text': 'I encountered a connection error. Please check your internet.',
+        'type': 'error'
+      };
+    }
+  }
+
   Future<Map<String, dynamic>> getAIInsights(String token) async {
     try {
       final response = await http.get(
@@ -1856,51 +1875,4 @@ class ApiService {
     }
   }
 
-
-  Future<Map<String, dynamic>> askAiAnalyst(String query, String token) async {
-    try {
-      final response = await http.post(
-        Uri.parse('$_apiBase/admin/ai-analyst'),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $token',
-        },
-        body: jsonEncode({'query': query}),
-      ).timeout(const Duration(seconds: 15));
-      return jsonDecode(response.body);
-    } catch (e) {
-      return {'text': 'I am having trouble connecting to the intelligence server.', 'isAi': true};
-    }
-  }
-
-  Future<Map<String, dynamic>> verifyBalances(String token) async {
-    try {
-      final response = await http.get(
-        Uri.parse('$_apiBase/admin/verify-balances'),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $token',
-        },
-      ).timeout(const Duration(seconds: 20));
-      return jsonDecode(response.body);
-    } catch (e) {
-      return {'status': 'error', 'msg': e.toString()};
-    }
-  }
-
-  Future<Map<String, dynamic>> recalculateAccounting(String token, {int days = 30}) async {
-    try {
-      final response = await http.post(
-        Uri.parse('$_apiBase/admin/recalculate-accounting'),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $token',
-        },
-        body: jsonEncode({'days': days}),
-      ).timeout(const Duration(seconds: 30));
-      return jsonDecode(response.body);
-    } catch (e) {
-      return {'msg': 'Communication failed', 'error': e.toString()};
-    }
-  }
 }
