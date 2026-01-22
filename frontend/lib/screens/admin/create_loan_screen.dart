@@ -234,7 +234,7 @@ class _CreateLoanScreenState extends State<CreateLoanScreen> {
                         padding: const EdgeInsets.symmetric(vertical: 20),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                         elevation: 8,
-                        shadowColor: AppTheme.primaryColor.withOpacity(0.4),
+                        shadowColor: AppTheme.primaryColor.withValues(alpha: 0.4),
                       ),
                       child: _isLoading 
                         ? const CircularProgressIndicator(color: Colors.white)
@@ -270,10 +270,10 @@ class _CreateLoanScreenState extends State<CreateLoanScreen> {
         labelStyle: const TextStyle(color: Colors.white60),
         prefixIcon: Icon(icon, color: AppTheme.primaryColor, size: 20),
         filled: true,
-        fillColor: Colors.white.withOpacity(0.05),
+        fillColor: Colors.white.withValues(alpha: 0.05),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
-          borderSide: BorderSide(color: Colors.white.withOpacity(0.1)),
+          borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
@@ -295,7 +295,7 @@ class _CreateLoanScreenState extends State<CreateLoanScreen> {
     required void Function(T?) onChanged,
   }) {
     return DropdownButtonFormField<T>(
-      value: value,
+      initialValue: value,
       items: items,
       onChanged: onChanged,
       dropdownColor: const Color(0xFF1E293B),
@@ -305,10 +305,10 @@ class _CreateLoanScreenState extends State<CreateLoanScreen> {
         labelStyle: const TextStyle(color: Colors.white60),
         prefixIcon: icon != null ? Icon(icon, color: AppTheme.primaryColor, size: 20) : null,
         filled: true,
-        fillColor: Colors.white.withOpacity(0.05),
+        fillColor: Colors.white.withValues(alpha: 0.05),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
-          borderSide: BorderSide(color: Colors.white.withOpacity(0.1)),
+          borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),

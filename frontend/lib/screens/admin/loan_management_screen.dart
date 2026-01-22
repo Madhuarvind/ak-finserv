@@ -113,7 +113,7 @@ class _LoanManagementScreenState extends State<LoanManagementScreen> with Single
                     hintStyle: const TextStyle(color: Colors.white24),
                     prefixIcon: const Icon(Icons.search, color: Colors.white24),
                     filled: true,
-                    fillColor: Colors.white.withOpacity(0.05),
+                    fillColor: Colors.white.withValues(alpha: 0.05),
                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
                     contentPadding: const EdgeInsets.symmetric(vertical: 0),
                   ),
@@ -190,9 +190,9 @@ class _LoanManagementScreenState extends State<LoanManagementScreen> with Single
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.05),
+        color: Colors.white.withValues(alpha: 0.05),
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: Colors.white.withOpacity(0.1)),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
       ),
       child: InkWell(
         onTap: () async {
@@ -216,9 +216,9 @@ class _LoanManagementScreenState extends State<LoanManagementScreen> with Single
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                     decoration: BoxDecoration(
-                      color: statusColor.withOpacity(0.1),
+                      color: statusColor.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: statusColor.withOpacity(0.3))
+                      border: Border.all(color: statusColor.withValues(alpha: 0.3))
                     ),
                     child: Text(loan['status'].toString().toUpperCase(), 
                       style: GoogleFonts.outfit(color: statusColor, fontSize: 11, fontWeight: FontWeight.bold)),

@@ -10,7 +10,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'admin_customer_list_screen.dart'; // Import for search navigation
 import 'package:intl/intl.dart';
 import 'cash_settlement_screen.dart';
-import '../common/qr_scan_screen.dart';
+
 
 class AdminDashboard extends StatefulWidget {
   final int initialTab;

@@ -142,7 +142,7 @@ class _LoanDetailScreenState extends State<LoanDetailScreen> {
               
               if (result.containsKey('msg') && result['msg'].toString().contains('foreclosed')) {
                 if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Loan Foreclosed!")));
-                Navigator.pop(context, true);
+                if (mounted) Navigator.pop(context, true);
               } else {
                 if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: ${result['error']}")));
               }
@@ -262,9 +262,9 @@ class _LoanDetailScreenState extends State<LoanDetailScreen> {
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.05),
+        color: Colors.white.withValues(alpha: 0.05),
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: Colors.white.withOpacity(0.1)),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
       ),
       child: Column(
         children: [
@@ -333,14 +333,14 @@ class _LoanDetailScreenState extends State<LoanDetailScreen> {
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.02),
+        color: Colors.white.withValues(alpha: 0.02),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withOpacity(0.05)),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(title, style: GoogleFonts.outfit(color: AppTheme.primaryColor.withOpacity(0.8), fontSize: 12, fontWeight: FontWeight.w900, letterSpacing: 1.5)),
+          Text(title, style: GoogleFonts.outfit(color: AppTheme.primaryColor.withValues(alpha: 0.8), fontSize: 12, fontWeight: FontWeight.w900, letterSpacing: 1.5)),
           const SizedBox(height: 16),
           ...children,
         ],
@@ -358,7 +358,7 @@ class _LoanDetailScreenState extends State<LoanDetailScreen> {
           margin: const EdgeInsets.only(bottom: 8),
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.05),
+            color: Colors.white.withValues(alpha: 0.05),
             borderRadius: BorderRadius.circular(12),
           ),
           child: Row(
@@ -385,19 +385,7 @@ class _LoanDetailScreenState extends State<LoanDetailScreen> {
     );
   }
 
-  Widget _buildDetailRow(String label, String value, {Color? valueColor, bool isBold = false}) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween, 
-      children: [
-        Text(label, style: GoogleFonts.outfit(color: Colors.white54, fontSize: 16)),
-        Text(value, style: GoogleFonts.outfit(
-          fontSize: 18, 
-          fontWeight: isBold ? FontWeight.bold : FontWeight.w500,
-          color: valueColor ?? Colors.white
-        )),
-      ]
-    );
-  }
+
 
   Color _getStatusColor(dynamic status) {
     switch (status.toString().toLowerCase()) {
@@ -412,9 +400,9 @@ class _LoanDetailScreenState extends State<LoanDetailScreen> {
     List<dynamic> schedule = _loan['emi_schedule'];
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.05),
+        color: Colors.white.withValues(alpha: 0.05),
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: Colors.white.withOpacity(0.1)),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(24),
@@ -427,7 +415,7 @@ class _LoanDetailScreenState extends State<LoanDetailScreen> {
           },
           children: [
             TableRow(
-              decoration: BoxDecoration(color: Colors.white.withOpacity(0.05)),
+              decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.05)),
               children: [
                 _tableHeader("No."),
                 _tableHeader("Date"),
@@ -468,7 +456,7 @@ class _LoanDetailScreenState extends State<LoanDetailScreen> {
         child: ElevatedButton(
           onPressed: _isLoading ? null : _approveLoan,
           style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.greenAccent.withOpacity(0.2),
+            backgroundColor: Colors.greenAccent.withValues(alpha: 0.2),
             foregroundColor: Colors.greenAccent,
             side: const BorderSide(color: Colors.greenAccent),
             padding: const EdgeInsets.all(20),
@@ -485,7 +473,7 @@ class _LoanDetailScreenState extends State<LoanDetailScreen> {
         child: ElevatedButton(
           onPressed: _isLoading ? null : _forecloseLoan,
           style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.redAccent.withOpacity(0.1),
+            backgroundColor: Colors.redAccent.withValues(alpha: 0.1),
             foregroundColor: Colors.redAccent,
             side: const BorderSide(color: Colors.redAccent),
             padding: const EdgeInsets.all(20),
