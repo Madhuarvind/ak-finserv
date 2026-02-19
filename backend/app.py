@@ -43,7 +43,7 @@ def create_app():
     from routes.security import security_bp
     from routes.settlement import settlement_bp
     from routes.admin_tools import admin_tools_bp
-    # from routes.ops_analytics import ops_bp
+    from routes.ops_analytics import ops_bp
     from routes.worker_tracking import tracking_bp
 
     # Pre-load face verification model
@@ -66,7 +66,7 @@ def create_app():
     app.register_blueprint(security_bp, url_prefix="/api/security")
     app.register_blueprint(settlement_bp, url_prefix="/api/settlement")
     app.register_blueprint(admin_tools_bp, url_prefix="/api/admin")
-    # app.register_blueprint(ops_bp, url_prefix="/api/ops")
+    app.register_blueprint(ops_bp, url_prefix="/api/ops")
     app.register_blueprint(tracking_bp, url_prefix="/api/worker")
 
     # Create tables if they don't exist
